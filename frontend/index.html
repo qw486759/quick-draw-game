@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Draw</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/room-game.css" />
+  <link rel="stylesheet" href="css/index.css" />
+</head>
+<body>
+
+  <!-- ── Top bar ──────────────────────────────────────────────── -->
+  <header class="site-header">
+    <span class="site-logo">QUICK <span>DRAW</span></span>
+    <span class="header-tag">Powered by TensorFlow.js</span>
+  </header>
+
+  <!-- ── Hero ─────────────────────────────────────────────────── -->
+  <section class="hero">
+    <p class="hero-eyebrow">AI-Powered Drawing Game</p>
+    <h1 class="hero-title">Draw.<br>Let AI<br><span class="accent">Guess.</span></h1>
+    <p class="hero-sub">
+      Sketch anything — a CNN model watches every stroke and tries to name it in real time.
+      Pick a mode below to start.
+    </p>
+  </section>
+
+  <!-- ── Section label ────────────────────────────────────────── -->
+  <div class="divider">
+    <div class="divider-line"></div>
+    <span class="divider-label">Choose a mode</span>
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- ── Mode cards ───────────────────────────────────────────── -->
+  <nav class="mode-grid" aria-label="Game modes">
+
+    <!-- Free Mode -->
+    <a href="game.html" class="mode-card mode-card--free">
+      <span class="mode-badge badge--easy">Easy</span>
+      <div class="mode-icon">🎨</div>
+      <div class="mode-body">
+        <h2 class="mode-name">Free Mode</h2>
+        <p class="mode-desc">Draw the prompt — let the AI guess your sketch in real time.</p>
+        <div class="mode-meta">
+          <span class="meta-chip">6 rounds</span>
+          <span class="meta-chip">20 sec each</span>
+        </div>
+      </div>
+      <span class="mode-arrow">↗</span>
+    </a>
+
+    <!-- Challenge Mode -->
+    <a href="challenge.html" class="mode-card mode-card--challenge">
+      <span class="mode-badge badge--hard">Hard</span>
+      <div class="mode-icon">⚡</div>
+      <div class="mode-body">
+        <h2 class="mode-name">Challenge</h2>
+        <p class="mode-desc">Hit the AI confidence threshold to pass. Clock gets tighter each round.</p>
+        <div class="mode-meta">
+          <span class="meta-chip">Endless</span>
+          <span class="meta-chip">≥ 70% to pass</span>
+        </div>
+      </div>
+      <span class="mode-arrow">↗</span>
+    </a>
+
+    <!-- Multiplayer -->
+    <a href="lobby.html" class="mode-card mode-card--multi">
+      <span class="mode-badge badge--multiplayer">Multiplayer</span>
+      <div class="mode-icon">🕹</div>
+      <div class="mode-body">
+        <h2 class="mode-name">Versus Mode</h2>
+        <p class="mode-desc">
+          2–6 players, same prompt, AI scores everyone. Highest confidence wins. Scores hidden until time's up.
+        </p>
+        <div class="mode-meta">
+          <span class="meta-chip">2–6 players</span>
+          <span class="meta-chip">5 rounds</span>
+          <span class="meta-chip">30 sec each</span>
+        </div>
+      </div>
+      <span class="mode-arrow">↗</span>
+    </a>
+
+  </nav>
+
+  <!-- ── Fixed footer ─────────────────────────────────────────── -->
+  <footer class="footer-note">
+    <span>20 categories · CNN trained on Quick Draw! dataset</span>
+    <div class="footer-dot" title="Model ready"></div>
+    <span>88.4% val accuracy</span>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Draw — Multiplayer</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/room-game.css" />
+  <link rel="stylesheet" href="css/game-multi.css" />
+</head>
+<body>
+
+<!-- ── Sticky header ────────────────────────────────────────── -->
+<header class="page-header">
+  <a href="lobby.html" class="logo">Quick<span>Draw</span></a>
+  <span class="room-id-badge" id="round-badge">Round — / —</span>
+  <div class="timer-box">
+    <span class="timer-number" id="timer-number">—</span>
+    <span class="timer-label">sec</span>
+  </div>
+</header>
+
+<!-- ── Prompt banner ────────────────────────────────────────── -->
+<div class="prompt-banner" id="prompt-banner">
+  Waiting for game to start…
+</div>
+
+<!-- ── Main: canvas + sidebar ───────────────────────────────── -->
+<main class="game-main">
+
+  <section class="canvas-col">
+    <canvas id="draw-canvas" width="400" height="400"></canvas>
+    <div class="canvas-toolbar">
+      <button id="btn-clear" class="btn btn-neutral btn-inline">Clear ✕</button>
+    </div>
+  </section>
+
+  <aside class="sidebar">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left"><span class="dot"></span>AI Predictions</div>
+      </div>
+      <div class="card-body">
+        <div id="prediction-list">
+          <p class="hint-text">Start drawing to see predictions.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-left"><span class="dot"></span>Scoreboard</div>
+      </div>
+      <div class="card-body">
+        <div id="score-list">
+          <p class="hint-text">Scores will appear here.</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<!-- ── Loading overlay ──────────────────────────────────────── -->
+<div id="loading-overlay" class="overlay active">
+  <div class="overlay-card">
+    <h2>Loading AI…</h2>
+    <p id="loading-msg">Please wait while the model loads.</p>
+  </div>
+</div>
+
+<!-- ── Round-end overlay ────────────────────────────────────── -->
+<div id="roundend-overlay" class="overlay">
+  <div class="overlay-card">
+    <h2>Round <span id="re-round-number"></span> Results</h2>
+    <p>The prompt was: <strong id="re-prompt"></strong></p>
+    <table class="ranking-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Player</th><th>Score</th><th>Bonus</th><th>Total</th>
+        </tr>
+      </thead>
+      <tbody id="re-table-body"></tbody>
+    </table>
+    <p class="hint-text">Next round starting soon…</p>
+  </div>
+</div>
+
+<!-- ── Game-over overlay ─────────────────────────────────────── -->
+<div id="gameover-overlay" class="overlay">
+  <div class="overlay-card overlay-card--wide">
+
+    <h2>Game Over!</h2>
+
+    <!-- Final ranking -->
+    <ul id="go-ranking-list" class="final-rank-list"></ul>
+
+    <!-- Personal best -->
+    <p id="go-personal-best" class="personal-best"></p>
+
+    <!-- Drawing gallery (one section per round) -->
+    <div id="go-round-gallery" class="round-gallery"></div>
+
+    <!-- Action buttons -->
+    <div class="go-actions">
+      <button id="go-btn-lobby" class="btn btn-primary btn-inline">
+        Back to Room →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Toast ────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── Scripts ──────────────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/model.js"></script>
+<script src="js/socket-client.js"></script>
+<script src="js/game-multi.js"></script>
+
+</body>
+</html>

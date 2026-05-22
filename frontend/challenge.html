@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Draw — Challenge Mode</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/room-game.css" />
+  <link rel="stylesheet" href="css/game.css" />
+</head>
+<body>
+
+  <!-- SCREEN: Loading ──────────────────────────────────────────── -->
+  <div id="screen-loading" class="screen screen--active">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Loading AI model…</p>
+    </div>
+  </div>
+
+  <!-- SCREEN: Ready ────────────────────────────────────────────── -->
+  <div id="screen-ready" class="screen">
+    <div class="ready-card">
+
+      <div class="ready-badge">Challenge Mode</div>
+      <h1 class="ready-title">How Far Can You Go?</h1>
+      <p class="ready-subtitle">
+        Draw fast enough for the AI to recognize your sketch.<br>
+        Each round the clock gets tighter — don't let confidence drop below the threshold.
+      </p>
+
+      <div class="ready-best">
+        <span class="ready-best__label">Personal Best</span>
+        <span id="personal-best-display" class="ready-best__value">—</span>
+      </div>
+
+      <div class="ready-legend">
+        <div class="legend-item legend-item--easy">
+          <span class="legend-dot"></span>
+          <span>Rounds 1–5 · Easy · 70% threshold</span>
+        </div>
+        <div class="legend-item legend-item--medium">
+          <span class="legend-dot"></span>
+          <span>Rounds 6–10 · Medium · 75% threshold</span>
+        </div>
+        <div class="legend-item legend-item--hard">
+          <span class="legend-dot"></span>
+          <span>Rounds 11–15 · Hard · 80% threshold</span>
+        </div>
+        <div class="legend-item legend-item--extreme">
+          <span class="legend-dot"></span>
+          <span>Round 16+ · Extreme · 85% threshold</span>
+        </div>
+      </div>
+
+      <button id="btn-start" class="btn btn-primary">Start Challenge</button>
+      <a href="index.html" class="btn btn-neutral">← Back to Menu</a>
+
+    </div>
+  </div>
+
+  <!-- SCREEN: Round Start ──────────────────────────────────────── -->
+  <div id="screen-round-start" class="screen">
+    <div class="round-start-card">
+
+      <div id="rs-difficulty-badge" class="difficulty-badge difficulty-badge--easy">Easy</div>
+
+      <p class="rs-label">Draw this:</p>
+      <h2 id="rs-prompt" class="rs-prompt">cat</h2>
+
+      <div class="rs-meta">
+        <div class="rs-meta__item">
+          <span class="rs-meta__label">Round</span>
+          <span id="rs-round-number" class="rs-meta__value">1</span>
+        </div>
+        <div class="rs-meta__item">
+          <span class="rs-meta__label">Threshold</span>
+          <span id="rs-threshold" class="rs-meta__value">70%</span>
+        </div>
+        <div class="rs-meta__item">
+          <span class="rs-meta__label">Time</span>
+          <span id="rs-time-limit" class="rs-meta__value">25s</span>
+        </div>
+      </div>
+
+      <div id="rs-countdown" class="rs-countdown">3</div>
+
+    </div>
+  </div>
+
+  <!-- SCREEN: Drawing ──────────────────────────────────────────── -->
+  <div id="screen-drawing" class="screen">
+
+    <!-- Top bar — same structure as free mode -->
+    <div id="game-topbar">
+      <a href="index.html" class="topbar-logo">Quick<span>Draw</span></a>
+      <div id="game-topbar-inner">
+        <div id="topbar-prompt">
+          <span id="draw-difficulty-badge" class="difficulty-badge difficulty-badge--easy">Easy</span>
+          <strong id="draw-round-label">Round 1</strong>
+        </div>
+
+        <div id="timer-display">
+          <svg id="timer-ring" viewBox="0 0 44 44">
+            <circle class="timer-ring-bg"   cx="22" cy="22" r="18" />
+            <circle class="timer-ring-fill" cx="22" cy="22" r="18"
+                    id="timer-ring-fill" />
+          </svg>
+          <span id="timer-text">25</span>
+        </div>
+
+        <div id="topbar-right">
+          <button id="btn-exit" class="btn btn-neutral btn-inline">✕ Exit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main area -->
+    <div class="game-body">
+
+      <div class="canvas-wrap">
+        <p id="draw-prompt" class="prompt-text">cat</p>
+        <canvas id="drawing-canvas" width="400" height="400"></canvas>
+        <div class="canvas-toolbar">
+          <button id="btn-clear" class="btn btn-neutral btn-inline">Clear ✕</button>
+        </div>
+      </div>
+
+      <aside class="challenge-panel">
+
+        <p class="challenge-panel__heading">AI Confidence</p>
+
+        <div class="ai-label-display">
+          <span class="ai-label-display__prefix">Seeing:</span>
+          <span id="ai-top-label" class="ai-label-display__word">—</span>
+        </div>
+
+        <div class="confidence-meter">
+          <div id="threshold-marker"  class="confidence-meter__threshold"></div>
+          <div id="confidence-fill"   class="confidence-meter__fill"></div>
+          <span id="confidence-pct"   class="confidence-meter__pct">0%</span>
+        </div>
+
+        <div class="confidence-labels">
+          <span>0%</span>
+          <span id="threshold-label-inline" class="confidence-labels__target">Target: 70%</span>
+          <span>100%</span>
+        </div>
+
+        <p id="confidence-hint" class="confidence-hint">Start drawing!</p>
+
+        <hr class="panel-divider" />
+
+        <div class="score-display">
+          <span class="score-display__label">Score</span>
+          <span id="score-value" class="score-display__value">0</span>
+        </div>
+
+      </aside>
+
+    </div>
+  </div><!-- /#screen-drawing -->
+
+  <!-- SCREEN: Pass ─────────────────────────────────────────────── -->
+  <div id="screen-pass" class="screen">
+    <div class="pass-card">
+      <div class="pass-icon">✓</div>
+      <h2 class="pass-title">Passed!</h2>
+      <p id="pass-round-label" class="pass-round">Round 1 cleared</p>
+      <p id="pass-score-label" class="pass-score">+100 pts</p>
+    </div>
+  </div>
+
+  <!-- SCREEN: Game Over ────────────────────────────────────────── -->
+  <div id="screen-game-over" class="screen">
+    <div class="gameover-card">
+
+      <div class="gameover-icon">✗</div>
+      <h2 class="gameover-title">Time's Up!</h2>
+      <p id="gameover-prompt-reveal" class="gameover-prompt-reveal">
+        The word was <strong id="gameover-word">cat</strong>
+      </p>
+
+      <div class="gameover-stats">
+        <div class="stat-block">
+          <span class="stat-block__value" id="go-rounds">0</span>
+          <span class="stat-block__label">Rounds Cleared</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-block__value" id="go-score">0</span>
+          <span class="stat-block__label">Final Score</span>
+        </div>
+        <div class="stat-block">
+          <span class="stat-block__value" id="go-best">0</span>
+          <span class="stat-block__label">Personal Best</span>
+        </div>
+      </div>
+
+      <div id="new-record-banner" class="new-record-banner new-record-banner--hidden">
+        🏆 New Personal Best!
+      </div>
+
+      <div class="gameover-actions">
+        <button id="btn-play-again" class="btn btn-primary">Play Again</button>
+        <a href="index.html" class="btn btn-neutral">Back to Menu</a>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="js/canvas.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/game-challenge.js"></script>
+
+</body>
+</html>

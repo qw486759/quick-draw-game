@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Draw — Room</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/room-game.css" />
+  <style>
+    /* Ready indicator dot on player rows */
+    .ready-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--cream);
+      flex-shrink: 0;
+      transition: background .2s, border-color .2s;
+    }
+    .ready-dot.ready { background: var(--green); border-color: var(--green); }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <a href="lobby.html" class="logo">Quick<span>Draw</span></a>
+  <span class="room-id-badge">Room <strong id="header-room-id">—</strong></span>
+  <button class="leave-btn" id="leave-btn">Leave Room</button>
+</header>
+
+<main class="main">
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-left"><span class="dot"></span>Players</div>
+      <span id="player-count-label" style="font-size:.68rem;opacity:.7">0 / ?</span>
+    </div>
+    <div class="card-body">
+      <div id="player-list"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>Status</div>
+    <div class="card-body">
+      <div id="action-area"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="dot"></span>Room Log</div>
+    <div class="card-body" style="padding:14px 16px">
+      <div id="notif-log">
+        <div class="notif-item info">Connecting to room…</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/socket-client.js"></script>
+<script src="js/room.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,317 @@
+/* ============================================================
+   game-multi.css
+   Page-specific layout for game-multi.html.
+   Imports the shared palette from room-game.css via the HTML.
+   ============================================================ */
+
+/* ── Prompt banner (below the sticky header) ────────────────── */
+.prompt-banner {
+  text-align: center;
+  padding: 16px 24px;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  letter-spacing: .04em;
+  color: var(--ink);
+  border-bottom: 2px solid var(--border);
+  background: var(--cream);
+}
+
+/* ── Countdown timer (inside .page-header) ──────────────────── */
+.timer-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  flex-shrink: 0;
+}
+
+.timer-number {
+  font-family: var(--font-mono);
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: color .3s;
+}
+
+.timer-number.warn   { color: #d97706; } /* amber */
+.timer-number.urgent { color: var(--accent); }
+
+.timer-label {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+/* ── Main two-column layout ─────────────────────────────────── */
+.game-main {
+  display: flex;
+  gap: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* ── Canvas column ──────────────────────────────────────────── */
+.canvas-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+#draw-canvas {
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  background: #fff;
+  cursor: crosshair;
+  display: block;
+  touch-action: none; /* prevent page scroll while drawing on mobile */
+}
+
+.canvas-toolbar {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────── */
+.sidebar {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* cards already have margin-bottom via .card rule in room-game.css */
+}
+
+/* ── AI prediction bars ─────────────────────────────────────── */
+.prediction-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+.prediction-item:last-child { margin-bottom: 0; }
+
+.prediction-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: .78rem;
+  color: var(--ink);
+}
+
+.prediction-bar-track {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.prediction-bar-fill {
+  height: 100%;
+  background: var(--accent2);
+  border-radius: 3px;
+  transition: width .2s ease;
+}
+
+/* ── Score rows ─────────────────────────────────────────────── */
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: .88rem;
+}
+.score-row:last-child { border-bottom: none; }
+
+.score-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+
+.score-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Hint / placeholder text ────────────────────────────────── */
+.hint-text {
+  font-family: var(--font-mono);
+  font-size: .75rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* ── Responsive: stack on narrow screens ────────────────────── */
+@media (max-width: 600px) {
+  #draw-canvas {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .game-main {
+    padding: 16px 16px 40px;
+    gap: 16px;
+  }
+}
+
+/* ================================================================
+   Game-over overlay extras
+   ================================================================ */
+
+/* Make the game-over card wider so the gallery fits */
+.overlay-card--wide {
+  max-width: 720px;
+  /* Allow the card itself to scroll on small screens */
+  max-height: 88vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* smooth scroll on iOS */
+  text-align: left;
+  /* Ensure it doesn't stick to viewport edges */
+  margin: 6vh auto;
+}
+
+.overlay-card--wide h2 {
+  text-align: center;
+}
+
+/* ── Final rank list tweaks ─────────────────────────────────── */
+.final-rank-list li.me {
+  background: #eff6ff;
+  border-radius: var(--radius);
+  padding-left: 6px;
+}
+
+.rank-medal { font-size: 1.1rem; min-width: 1.8rem; }
+.rank-name  { flex: 1; }
+.rank-name em { font-style: normal; color: var(--accent2); font-size: .8rem; }
+.rank-score { font-family: var(--font-mono); font-weight: 700; }
+
+/* ── Personal best banner ───────────────────────────────────── */
+.personal-best {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  color: var(--muted);
+  padding: 8px 0 4px;
+}
+
+/* ── Drawing gallery ────────────────────────────────────────── */
+.round-gallery {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.gallery-round-title {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-bottom: .75rem;
+  padding-bottom: .4rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+/* Cards sit side-by-side, centered, with a divider line between them */
+.gallery-cards {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+/* Each player card takes equal width up to 200px */
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--cream);
+  padding: 14px 20px;
+  flex: 1;
+  min-width: 140px;
+  max-width: 200px;
+}
+
+/* Vertical divider between adjacent cards */
+.gallery-card + .gallery-card {
+  border-left: 2px solid var(--border);
+}
+
+/* Wrap the whole row in a bordered box */
+.gallery-cards {
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.gallery-img {
+  width: 140px;
+  height: 140px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  object-fit: contain;
+  background: #fff;
+  display: block;
+  image-rendering: pixelated; /* keep sketch crisp when upscaled */
+}
+
+.gallery-blank {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 2rem;
+  background: #fff;
+  border: 1px solid var(--border);
+}
+
+.gallery-name {
+  font-weight: 700;
+  font-size: .85rem;
+  text-align: center;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gallery-score {
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  color: var(--accent2);
+  font-weight: 700;
+}
+
+.gallery-label {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── Action buttons row ─────────────────────────────────────── */
+.go-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 1.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}

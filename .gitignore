@@ -1,0 +1,34 @@
+# ── Node.js ──────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ── Environment variables ─────────────────────────────────────
+.env
+.env.local
+.env.production
+
+# ── Python (model training) ───────────────────────────────────
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.npy
+*.h5
+
+# ── macOS ─────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+
+# ── Windows ───────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+
+# ── VS Code ───────────────────────────────────────────────────
+.vscode/
+
+# ── Dev / test artifacts ──────────────────────────────────────
+frontend/test.html
+scripts/data/
+scripts/*.h5
+scripts/*.png

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Draw — Free Play</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/reset.css" />
+  <link rel="stylesheet" href="css/room-game.css" />
+  <link rel="stylesheet" href="css/game.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+</head>
+<body>
+
+  <!-- ── Loading Screen ───────────────────────────────────────── -->
+  <div id="loading-screen">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <p class="loading-text" id="loading-message">Loading AI model…</p>
+    </div>
+  </div>
+
+  <!-- ── Main App ─────────────────────────────────────────────── -->
+  <div id="app" class="hidden">
+
+    <!-- SCREEN: Ready ──────────────────────────────────────────── -->
+    <div id="screen-ready">
+      <div class="ready-card">
+        <h1 class="ready-title">Quick Draw</h1>
+        <p class="ready-subtitle">6 rounds · 20 seconds each · AI guesses your drawing</p>
+        <button id="btn-start" class="btn btn-primary">Start Game</button>
+        <a href="index.html" class="btn btn-neutral">← Back to Menu</a>
+      </div>
+    </div>
+
+    <!-- SCREEN: Round Start (3-2-1 countdown) ──────────────────── -->
+    <div id="screen-round-start">
+      <div class="round-start-card">
+        <p class="round-label">
+          Round <span id="round-current">1</span> of <span id="round-total">6</span>
+        </p>
+        <h2 class="rs-label">Draw this:</h2>
+        <div id="prompt-word" class="prompt-word"></div>
+        <div id="countdown-start" class="countdown-big"></div>
+      </div>
+    </div>
+
+    <!-- SCREEN: Drawing ────────────────────────────────────────── -->
+    <div id="screen-drawing">
+
+      <!-- Top bar -->
+      <div id="game-topbar">
+        <a href="index.html" class="topbar-logo">Quick<span>Draw</span></a>
+        <div id="game-topbar-inner">
+          <div id="topbar-prompt">
+            <span id="topbar-round" class="game-header__round">Round 1/6</span>
+            <span>Draw: <strong id="topbar-word"></strong></span>
+          </div>
+
+          <div id="timer-display">
+            <svg id="timer-ring" viewBox="0 0 44 44">
+              <circle class="timer-ring-bg"   cx="22" cy="22" r="18" />
+              <circle class="timer-ring-fill" cx="22" cy="22" r="18"
+                      id="timer-ring-fill" />
+            </svg>
+            <span id="timer-text">20</span>
+          </div>
+
+          <div id="topbar-right">
+            <div id="topbar-score">Score: <strong id="score-display">0</strong></div>
+            <a href="index.html" id="btn-exit" class="btn btn-neutral btn-inline">✕ Exit</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game area -->
+      <div id="game-area">
+
+        <section id="canvas-section">
+          <canvas id="drawing-canvas" width="400" height="400"></canvas>
+          <div id="canvas-controls">
+            <button id="btn-clear" class="btn btn-neutral btn-inline">Clear ✕</button>
+          </div>
+        </section>
+
+        <section id="ai-panel">
+          <h2>AI is guessing…</h2>
+          <ul id="prediction-list"></ul>
+          <p id="ai-idle-message">Start drawing!</p>
+        </section>
+
+      </div>
+    </div><!-- /#screen-drawing -->
+
+    <!-- SCREEN: Round Result ───────────────────────────────────── -->
+    <div id="screen-round-result">
+      <div id="result-icon"></div>
+      <h2 id="result-title"></h2>
+      <p  id="result-subtitle"></p>
+      <div id="result-score-breakdown">
+        <div class="breakdown-row">
+          <span>Base score</span>
+          <span id="bd-base"></span>
+        </div>
+        <div class="breakdown-row">
+          <span>Time bonus</span>
+          <span id="bd-time"></span>
+        </div>
+        <div class="breakdown-row">
+          <span>Confidence bonus</span>
+          <span id="bd-confidence"></span>
+        </div>
+        <div class="breakdown-row breakdown-row--multiplier">
+          <span>Combo multiplier</span>
+          <span id="bd-multiplier"></span>
+        </div>
+        <div class="breakdown-row breakdown-row--total">
+          <span>Round score</span>
+          <span id="bd-round-score"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN: Game Over ──────────────────────────────────────────── -->
+    <div id="screen-game-over">
+      <div class="gameover-card">
+        <div class="gameover-icon">✗</div>
+        <h2 class="gameover-title">Game Over</h2>
+
+        <div class="gameover-stats">
+          <div class="stat-block">
+            <span class="stat-block__value" id="final-score-display">0</span>
+            <span class="stat-block__label">Final Score</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-block__value" id="stat-correct">0/6</span>
+            <span class="stat-block__label">Rounds Correct</span>
+          </div>
+          <div class="stat-block">
+            <span class="stat-block__value" id="stat-combo">0x</span>
+            <span class="stat-block__label">Best Combo</span>
+          </div>
+        </div>
+
+        <div class="gameover-actions">
+          <button id="btn-play-again" class="btn btn-primary">Play Again</button>
+          <a href="index.html" class="btn btn-neutral">Back to Menu</a>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#app -->
+
+  <!-- Scripts -->
+  <script src="js/canvas.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/scoring.js"></script>
+  <script src="js/game-single.js"></script>
+
+</body>
+</html>
