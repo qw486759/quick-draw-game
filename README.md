@@ -2,7 +2,8 @@
 
 A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CNN model watches every stroke and tries to name it in real time. Supports single-player modes and multiplayer via WebSocket.
 
-![Quick Draw Screenshot](https://via.placeholder.com/800x400?text=Quick+Draw+Screenshot)
+<img width="1919" height="920" alt="image" src="https://github.com/user-attachments/assets/0a43e73b-7bc7-4cad-9164-d33d25d6ba80" />
+
 
 ---
 
