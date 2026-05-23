@@ -55,8 +55,10 @@ let state = {
   timeLeft:       0,      // seconds remaining in this round
   roundTimerId:   null,   // setInterval ID for the round clock
   debounceTimer:  null,   // setTimeout ID for inference debounce
+  passTimerId:    null,   // setTimeout ID for the pass screen transition
   isDrawing:      false,  // true while the drawing screen is active
   personalBest:   0,      // rounds cleared, loaded from localStorage
+  usedWords:      [],
 };
 
 
@@ -187,9 +189,15 @@ function pickWord(tier, categories) {
   // 'extreme' uses the hard word pool
   const pool = tier === 'extreme' ? categories.hard : categories[tier];
   const source = (pool && pool.length > 0) ? pool : categories.easy;
-  return source[Math.floor(Math.random() * source.length)];
-}
 
+  // Filter out already-used words to avoid repetition
+  const available = source.filter(w => !state.usedWords.includes(w));
+  const finalPool = available.length > 0 ? available : source;
+
+  const word = finalPool[Math.floor(Math.random() * finalPool.length)];
+  state.usedWords.push(word);
+  return word;
+}
 
 // =============================================================
 // SCREEN MANAGEMENT
@@ -201,19 +209,9 @@ function pickWord(tier, categories) {
  * @param {HTMLElement} screenEl
  */
 function showScreen(screenEl) {
-  // Directly set display via JS — no CSS class priority issues
-  const DISPLAY_MAP = {
-    'screen-loading':    'grid',
-    'screen-ready':      'flex',
-    'screen-round-start':'grid',
-    'screen-drawing':    'flex',
-    'screen-pass':       'grid',
-    'screen-game-over':  'grid',
-  };
-  Object.values(SCREENS).forEach(s => { s.style.display = 'none'; });
-  screenEl.style.display = DISPLAY_MAP[screenEl.id] || 'flex';
+  Object.values(SCREENS).forEach(s => s.classList.remove('screen--active'));
+  screenEl.classList.add('screen--active');
 }
-
 
 // =============================================================
 // TIMER HELPERS
@@ -247,6 +245,20 @@ function clearRoundTimer() {
   }
 }
 
+/** Clear all active timers to prevent stale callbacks after exit or restart. */
+function clearAllTimers() {
+  clearRoundTimer();
+
+  if (state.debounceTimer !== null) {
+    clearTimeout(state.debounceTimer);
+    state.debounceTimer = null;
+  }
+
+  if (state.passTimerId !== null) {
+    clearTimeout(state.passTimerId);
+    state.passTimerId = null;
+  }
+}
 
 // =============================================================
 // CONFIDENCE PANEL HELPERS
@@ -469,7 +481,9 @@ function enterPass(clearedRound, roundScore, categories) {
 
   showScreen(SCREENS.pass);
 
-  setTimeout(() => {
+  clearTimeout(state.passTimerId);
+  state.passTimerId = setTimeout(() => {
+    if (state.isDrawing) return; // safety guard
     const nextRound  = clearedRound + 1;
     const nextPrompt = pickWord(getDifficultyTier(nextRound), categories);
     state.currentPrompt = nextPrompt;
@@ -590,6 +604,7 @@ async function main() {
   DOM.btnStart.addEventListener('click', () => {
     state.round  = 1;
     state.score  = 0;
+    state.usedWords = [];
 
     const prompt = pickWord(getDifficultyTier(1), categories);
     state.currentPrompt = prompt;
@@ -605,8 +620,7 @@ async function main() {
   // ---- Button: Exit mid-game ----------------------------------
   DOM.btnExit.addEventListener('click', () => {
     state.isDrawing = false;
-    clearRoundTimer();
-    clearTimeout(state.debounceTimer);
+    clearAllTimers();
     enterReady();
   });
 
@@ -614,6 +628,7 @@ async function main() {
   DOM.btnPlayAgain.addEventListener('click', () => {
     state.round  = 1;
     state.score  = 0;
+    state.usedWords = [];
 
     const prompt = pickWord(getDifficultyTier(1), categories);
     state.currentPrompt = prompt;

@@ -6,13 +6,6 @@
  * Training order: see CATEGORIES array below (20 classes)
  */
 
-// ── Category list (must match training order) ─────────────────────────────
-const CATEGORIES = [
-  "cat", "dog", "house", "sun", "tree", "fish", "star",
-  "car", "airplane", "umbrella", "guitar", "clock", "flower", "bicycle",
-  "elephant", "penguin", "crown", "lighthouse", "snowflake", "cactus",
-];
-
 // Capitalize first letter for display
 function toDisplayLabel(label) {
   return label.charAt(0).toUpperCase() + label.slice(1);
@@ -27,6 +20,7 @@ class QuickDrawModel {
     this.model     = null;
     this.isLoading = false;
     this.isReady   = false;
+    this.categories = []; // loaded from categories.json in load()
   }
 
   /**
@@ -40,6 +34,11 @@ class QuickDrawModel {
     try {
       console.log('[Model] Loading model...');
       if (onProgress) onProgress('loading');
+
+      // Load category labels from the single source of truth
+      const catResponse = await fetch('./assets/words/categories.json');
+      const catData     = await catResponse.json();
+      this.categories   = catData.modelCategories;
 
       this.model = await tf.loadLayersModel(MODEL_PATH);
 
@@ -78,8 +77,8 @@ class QuickDrawModel {
       const values = output.dataSync();
 
       return Array.from(values).map((confidence, i) => ({
-        label:        CATEGORIES[i],
-        displayLabel: toDisplayLabel(CATEGORIES[i]),
+        label:        this.categories[i],
+        displayLabel: toDisplayLabel(this.categories[i]),
         confidence:   confidence,
       }));
     });

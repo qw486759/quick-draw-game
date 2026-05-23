@@ -1,5 +1,10 @@
 {
-  "easy": ["cat", "dog", "house", "sun", "tree", "fish", "star"],
+  "modelCategories": [
+    "cat", "dog", "house", "sun", "tree", "fish", "star",
+    "car", "airplane", "umbrella", "guitar", "clock", "flower", "bicycle",
+    "elephant", "penguin", "crown", "lighthouse", "snowflake", "cactus"
+  ],
+  "easy":   ["cat", "dog", "house", "sun", "tree", "fish", "star"],
   "medium": ["car", "airplane", "umbrella", "guitar", "clock", "flower", "bicycle"],
-  "hard": ["elephant", "penguin", "crown", "lighthouse", "snowflake", "cactus"]
+  "hard":   ["elephant", "penguin", "crown", "lighthouse", "snowflake", "cactus"]
 }

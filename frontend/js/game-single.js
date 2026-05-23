@@ -12,7 +12,7 @@ const CONFIG = {
   ROUND_DURATION:     20,   // seconds per round
   COUNTDOWN_DURATION: 3,    // "3-2-1" before drawing starts
   RESULT_DISPLAY_MS:  2500, // how long to show round result before next round
-  CORRECT_THRESHOLD:  0.5,  // AI confidence needed to count as correct
+  CORRECT_THRESHOLD:  0.7,  // AI confidence needed to count as correct
   TIMER_CIRCUMFERENCE: 113.1, // 2 * PI * 18 (SVG circle radius)
 };
 
@@ -42,6 +42,7 @@ let currentWord     = '';
 let secondsLeft     = 0;
 let roundTimer      = null; // setInterval handle
 let countdownTimer  = null; // setInterval handle for 3-2-1
+let resultTimer     = null;
 let bestCombo       = 0;
 let correctCount    = 0;
 // Track rounds already used to avoid duplicate words in one game
@@ -101,22 +102,17 @@ const dom = {
    All screen switching goes through here.
    ============================================================ */
 
-// Display type for each screen — JS owns all show/hide logic
-const SCREEN_DISPLAY = {
-  screenReady:       'flex',   // .ready-card centered column
-  screenRoundStart:  'grid',   // card centered via place-items
-  screenDrawing:     'flex',   // full-height flex column
-  screenRoundResult: 'flex',   // centered column
-  screenGameOver:    'flex',   // centered column
-};
+const SCREEN_KEYS = [
+  'screenReady',
+  'screenRoundStart',
+  'screenDrawing',
+  'screenRoundResult',
+  'screenGameOver',
+];
 
 function showScreen(screenKey) {
-  // Hide all screens
-  Object.keys(SCREEN_DISPLAY).forEach(key => {
-    dom[key].style.display = 'none';
-  });
-  // Show the target screen with the correct display type
-  dom[screenKey].style.display = SCREEN_DISPLAY[screenKey];
+  SCREEN_KEYS.forEach(key => dom[key].classList.remove('screen--active'));
+  dom[screenKey].classList.add('screen--active');
 }
 
 function transition(newState, payload = {}) {
@@ -302,7 +298,9 @@ function _showRoundResult(payload) {
   dom.scoreDisplay.textContent = payload.newTotal;
 
   // Auto-advance after delay
-  setTimeout(() => {
+  clearTimeout(resultTimer);
+  resultTimer = setTimeout(() => {
+    if (currentState !== STATE.ROUND_RESULT) return;
     if (currentRound >= CONFIG.TOTAL_ROUNDS) {
       transition(STATE.GAME_OVER);
     } else {
@@ -359,15 +357,13 @@ function runInference() {
   // Only run inference during the drawing phase
   if (currentState !== STATE.DRAWING) return;
 
-  const tensor = canvas.getImageTensor();
-  const sum    = tensor.sum().dataSync()[0];
-
-  if (sum === 0) {
-    tensor.dispose();
+  // Skip inference if canvas is blank — avoids creating tensors unnecessarily
+  if (!canvas.hasDrawing()) {
     _resetPredictions();
     return;
   }
 
+  const tensor      = canvas.getImageTensor();
   const predictions = model.predict(tensor);
   tensor.dispose();
 
@@ -430,6 +426,7 @@ document.getElementById('btn-exit').addEventListener('click', () => {
   // Clean up timers before leaving to prevent memory leaks
   clearInterval(roundTimer);
   clearInterval(countdownTimer);
+  clearTimeout(resultTimer);
 });
 
 /* ============================================================
@@ -458,6 +455,7 @@ async function init() {
 
     canvas = new DrawingCanvas(dom.drawingCanvas, runInference);
 
+    dom.app.classList.remove('hidden');
     dom.loadingScreen.classList.add('hidden');
     transition(STATE.READY);
 

@@ -342,8 +342,17 @@ socket.on("game_end", ({ finalRanking, roundHistory }) => {
   showGameOver(finalRanking, roundHistory);
 });
 
-socket.on("player_disconnect", ({ playerName: name }) => {
+socket.on("player_disconnect", ({ playerName: name, connectedCount }) => {
   showToast(`${name} disconnected`, true);
+
+  // If only 1 player remains, show the overlay so they can exit gracefully
+  if (connectedCount <= 1) {
+    const overlay = document.getElementById("player-left-overlay");
+    const message = document.getElementById("player-left-message");
+    message.textContent = `${name} has left the game.`;
+    overlay.classList.add("active");
+    roundActive = false;
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -352,6 +361,10 @@ socket.on("player_disconnect", ({ playerName: name }) => {
 
 goBtnLobby.addEventListener("click", () => {
   window.location.href = `room.html?roomId=${encodeURIComponent(roomId)}&name=${encodeURIComponent(playerName)}`;
+});
+
+document.getElementById("btn-exit-game").addEventListener("click", () => {
+  window.location.href = "lobby.html";
 });
 
 // ---------------------------------------------------------------------------

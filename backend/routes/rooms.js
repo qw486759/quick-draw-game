@@ -17,7 +17,13 @@ const roomManager = require("../room-manager");
 // Returns only waiting/playing rooms — finished rooms are excluded from lobby.
 router.get("/", (req, res) => {
   const allRooms = roomManager.listRooms();
-  const visibleRooms = allRooms.filter((r) => r.status !== "finished");
+  const visibleRooms = allRooms
+    .filter((r) => r.status !== "finished")
+    .map((r) => ({
+      ...r,
+      // Only count connected players for lobby display
+      players: r.players.filter((p) => p.connected),
+    }));
   res.json(visibleRooms);
 });
 

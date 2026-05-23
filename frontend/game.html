@@ -29,7 +29,7 @@
   <div id="app" class="hidden">
 
     <!-- SCREEN: Ready ──────────────────────────────────────────── -->
-    <div id="screen-ready">
+    <div id="screen-ready" class="screen">
       <div class="ready-card">
         <h1 class="ready-title">Quick Draw</h1>
         <p class="ready-subtitle">6 rounds · 20 seconds each · AI guesses your drawing</p>
@@ -39,7 +39,7 @@
     </div>
 
     <!-- SCREEN: Round Start (3-2-1 countdown) ──────────────────── -->
-    <div id="screen-round-start">
+    <div id="screen-round-start" class="screen">
       <div class="round-start-card">
         <p class="round-label">
           Round <span id="round-current">1</span> of <span id="round-total">6</span>
@@ -51,7 +51,7 @@
     </div>
 
     <!-- SCREEN: Drawing ────────────────────────────────────────── -->
-    <div id="screen-drawing">
+    <div id="screen-drawing" class="screen">
 
       <!-- Top bar -->
       <div id="game-topbar">
@@ -98,11 +98,12 @@
     </div><!-- /#screen-drawing -->
 
     <!-- SCREEN: Round Result ───────────────────────────────────── -->
-    <div id="screen-round-result">
+    <div id="screen-round-result" class="screen">
       <div id="result-icon"></div>
       <h2 id="result-title"></h2>
       <p  id="result-subtitle"></p>
       <div id="result-score-breakdown">
+        <a href="index.html" class="btn btn-neutral" style="margin-top:8px">✕ Exit to Menu</a>
         <div class="breakdown-row">
           <span>Base score</span>
           <span id="bd-base"></span>
@@ -127,7 +128,7 @@
     </div>
 
     <!-- SCREEN: Game Over ──────────────────────────────────────────── -->
-    <div id="screen-game-over">
+    <div id="screen-game-over" class="screen">
       <div class="gameover-card">
         <div class="gameover-icon">✗</div>
         <h2 class="gameover-title">Game Over</h2>

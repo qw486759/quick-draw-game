@@ -18,21 +18,37 @@ const roomManager = require("./room-manager");
 const roomsRouter = require("./routes/rooms");
 
 // ---------------------------------------------------------------------------
-// Game constants
+// Payload validation helpers
 // ---------------------------------------------------------------------------
 
 /**
- * The 20 drawable categories our CNN model was trained on.
- * Order must match the CATEGORIES array in frontend/js/model.js exactly,
- * because the server uses this list to pick prompts for each round.
- * The server never does ML inference — it only picks which word to draw.
+ * Returns true if value is a plain object (not null, not array).
+ * Used to safely validate Socket.io event payloads before destructuring.
  */
-const CATEGORIES = [
-  "cat", "dog", "house", "sun", "tree",
-  "fish", "star", "car", "airplane", "umbrella",
-  "guitar", "clock", "flower", "bicycle", "elephant",
-  "penguin", "crown", "lighthouse", "snowflake", "cactus",
-];
+function isObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Safely extracts a trimmed string from a payload field.
+ * Returns empty string if the field is missing or not a string.
+ */
+function readString(value, maxLen = 80) {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, maxLen);
+}
+
+// ---------------------------------------------------------------------------
+// Game constants
+// ---------------------------------------------------------------------------
+
+// Load categories from the single source of truth shared with the frontend.
+// modelCategories order must match the CNN training order exactly.
+const categoriesPath = require("path").join(
+  __dirname, "../frontend/assets/words/categories.json"
+);
+const categoriesData = require(categoriesPath);
+const CATEGORIES = categoriesData.modelCategories;
 
 /** Duration of each drawing round in seconds. */
 const ROUND_DURATION = 30;
@@ -125,8 +141,19 @@ io.on("connection", (socket) => {
   // Emitted by a client when they enter a room page.
   // Payload: { roomId: string, playerName: string }
   // ------------------------------------------------------------------
-  socket.on("join_room", ({ roomId, playerName }) => {
-    if (!roomId || !playerName) return;
+  socket.on("join_room", (payload) => {
+    if (!isObject(payload)) {
+      socket.emit("join_error", { error: "Invalid payload." });
+      return;
+    }
+
+    const roomId     = readString(payload.roomId, 12).toUpperCase();
+    const playerName = readString(payload.playerName, 30);
+
+    if (!roomId || !playerName) {
+      socket.emit("join_error", { error: "roomId and playerName are required." });
+      return;
+    }
 
     const rawRoom = roomManager.getRawRoom(roomId);
 
@@ -193,7 +220,10 @@ io.on("connection", (socket) => {
   // Emitted when a player explicitly clicks "Leave Room".
   // Payload: { roomId: string }
   // ------------------------------------------------------------------
-  socket.on("leave_room", ({ roomId }) => {
+  socket.on("leave_room", (payload) => {
+    if (!isObject(payload)) return;
+    const roomId = readString(payload.roomId, 12).toUpperCase();
+    if (!roomId) return;
     handlePlayerLeave(socket, roomId, "explicit");
   });
 
@@ -212,7 +242,10 @@ io.on("connection", (socket) => {
   // the server-side game loop for all players.
   // Payload: { roomId: string }
   // ------------------------------------------------------------------
-  socket.on("start_game", ({ roomId }) => {
+  socket.on("start_game", (payload) => {
+    if (!isObject(payload)) return;
+    const roomId = readString(payload.roomId, 12).toUpperCase();
+    if (!roomId) return;
     const room = roomManager.getRawRoom(roomId);
     if (!room) return;
 
@@ -271,7 +304,11 @@ io.on("connection", (socket) => {
   // Server broadcasts updated room so host's Start button can enable/disable.
   // Payload: { roomId: string }
   // ------------------------------------------------------------------
-  socket.on("player_ready", ({ roomId }) => {
+  socket.on("player_ready", (payload) => {
+    if (!isObject(payload)) return;
+    const roomId = readString(payload.roomId, 12).toUpperCase();
+    if (!roomId) return;
+
     const room = roomManager.getRawRoom(roomId);
     if (!room || room.status !== "waiting") return;
 
@@ -294,18 +331,33 @@ io.on("connection", (socket) => {
   // expires. Sending multiple times is fine — last write wins.
   // Payload: { roomId: string, score: number, topLabel: string, confidence: number }
   // ------------------------------------------------------------------
-  socket.on("submit_score", ({ roomId, score, topLabel, confidence, drawing }) => {
+  socket.on("submit_score", (payload) => {
+    if (!isObject(payload)) return;
+    const roomId     = readString(payload.roomId, 12).toUpperCase();
+    const topLabel   = readString(payload.topLabel, 40);
+    const confidence = typeof payload.confidence === 'number'
+      ? Math.max(0, Math.min(1, payload.confidence))
+      : 0;
+    const drawing    = typeof payload.drawing === 'string'
+      ? payload.drawing.slice(0, 50000)
+      : null;
+    if (!roomId) return;
+
     const room = roomManager.getRawRoom(roomId);
     if (!room || room.status !== "playing") return;
 
     // Store the latest score + drawing for this player (last write wins)
+    // Calculate score server-side to prevent client score manipulation.
+    // Only award points if the top label matches the current prompt.
+    const score = topLabel === room.currentPrompt
+      ? Math.round(confidence * 1000)
+      : 0;
+
     room.submittedScores[socket.id] = {
-      score:      typeof score === "number" ? score : 0,
-      topLabel:   topLabel || "",
-      confidence: typeof confidence === "number" ? confidence : 0,
-      // drawing is a base64 data URL (small 28x28 upscaled to ~100px on client)
-      // Could be undefined if the canvas was blank — that's fine.
-      drawing:    drawing || null,
+      score,
+      topLabel,
+      confidence,
+      drawing,
     };
   });
 
@@ -314,7 +366,11 @@ io.on("connection", (socket) => {
   // Host can restart after game_end — resets scores and starts fresh.
   // Payload: { roomId: string }
   // ------------------------------------------------------------------
-  socket.on("restart_game", ({ roomId }) => {
+  socket.on("restart_game", (payload) => {
+    if (!isObject(payload)) return;
+    const roomId = readString(payload.roomId, 12).toUpperCase();
+    if (!roomId) return;
+
     const room = roomManager.getRawRoom(roomId);
     if (!room) return;
     if (room.hostId !== socket.id) {
@@ -592,17 +648,44 @@ function handlePlayerLeave(socket, roomId, reason) {
   const isTransitioning = status === "playing" || status === "finished";
 
   if (isTransitioning) {
-    // Check if the player already rejoined with a new socket id
-    const playerInRoom = rawRoom && rawRoom.players.find(
+    const leavingPlayerName = rawRoom?.players.find(
       (p) => p.name === result.room.players.find((rp) => rp.id === socket.id)?.name
-    );
-    if (playerInRoom && playerInRoom.id !== socket.id) {
-      // Already rejoined — this is a stale disconnect, ignore entirely
-      console.log(`[room] ${socket.id} stale disconnect ignored (player already rejoined as ${playerInRoom.id})`);
-      return;
-    }
-    // Not yet rejoined — mark disconnected but stay silent
-    console.log(`[room] ${socket.id} left room ${rid} (${reason}, ${status} — awaiting rejoin)`);
+    )?.name;
+
+    // Wait 2 seconds before broadcasting — gives the player time to rejoin
+    // after a page navigation (room.html → game-multi.html).
+    // If they haven't rejoined by then, treat it as a real disconnect.
+    setTimeout(() => {
+      const currentRoom = roomManager.getRawRoom(rid);
+      if (!currentRoom) return;
+
+      const player = currentRoom.players.find((p) => p.name === leavingPlayerName);
+
+      // If the player already rejoined with a new socket id, ignore
+      if (player && player.id !== socket.id && player.connected) {
+        console.log(`[room] ${socket.id} stale disconnect ignored (${leavingPlayerName} already rejoined)`);
+        return;
+      }
+
+      // Real disconnect — mark as disconnected and notify others
+      if (player) player.connected = false;
+
+      const connectedCount = currentRoom.players.filter((p) => p.connected).length;
+
+      console.log(`[room] ${leavingPlayerName} really disconnected from ${rid} (${connectedCount} remaining)`);
+
+      // If nobody is left, delete the room immediately
+      if (connectedCount === 0) {
+        roomManager.deleteRoom(rid);
+        return;
+      }
+
+      io.to(rid).emit("player_disconnect", {
+        playerName: leavingPlayerName,
+        connectedCount,
+      });
+    }, 2000);
+
     return;
   }
 
@@ -617,6 +700,14 @@ function handlePlayerLeave(socket, roomId, reason) {
 
   console.log(`[room] ${socket.id} left room ${rid} (${reason})`);
 }
+
+// ---------------------------------------------------------------------------
+// Room cleanup — runs every 60 seconds
+// Removes rooms that have been empty or finished for more than 15 minutes.
+// ---------------------------------------------------------------------------
+setInterval(() => {
+  roomManager.cleanupRooms();
+}, 60 * 1000);
 
 // ---------------------------------------------------------------------------
 // Start listening

@@ -8,19 +8,29 @@
    Display is controlled entirely by JS showScreen() via style.display.
    CSS only defines layout properties for when a screen IS visible.
    ─────────────────────────────────────────────────────────── */
-.screen { display: none; }
+.screen {
+  display: none !important;
+  visibility: hidden;
+}
 
-#screen-loading,
-#screen-round-start,
-#screen-pass,
-#screen-game-over {
+.screen--active {
+  display: flex !important;
+  visibility: visible;
+}
+
+#screen-loading.screen--active,
+#screen-round-start.screen--active,
+#screen-pass.screen--active,
+#screen-game-over.screen--active {
+  display: grid !important;
   min-height: 100vh;
   place-items: center;
   padding: 40px 24px;
   box-sizing: border-box;
 }
 
-#screen-drawing {
+#screen-drawing.screen--active {
+  display: flex !important;
   width: 100%;
   min-height: 100vh;
   flex-direction: column;
@@ -28,45 +38,13 @@
   justify-content: flex-start;
 }
 
-/* ── game.html screen layouts (JS controls display via style.display)
-   These define layout direction/alignment when a screen IS visible.
-   ─────────────────────────────────────────────────────────── */
-#screen-ready {
+#screen-ready.screen--active,
+#screen-round-result.screen--active {
+  display: flex !important;
   min-height: 100vh;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 24px;
-  box-sizing: border-box;
-}
-
-#screen-round-start {
-  min-height: 100vh;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 24px;
-  box-sizing: border-box;
-}
-
-#screen-round-result {
-  min-height: 100vh;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  text-align: center;
-  padding: 60px 24px;
-  box-sizing: border-box;
-}
-
-#screen-game-over {
-  min-height: 100vh;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  text-align: center;
   padding: 60px 24px;
   box-sizing: border-box;
 }
@@ -127,10 +105,8 @@
 #app {
   width: 100%;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  position: relative;
 }
 
 /* ── Ready screen ────────────────────────────────────────────── */
@@ -753,16 +729,6 @@
   font-size: 1.8rem;
   color: var(--ink);
   letter-spacing: .04em;
-}
-
-/* ── Round result screen (game.html) ─────────────────────────── */
-#screen-round-result {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  text-align: center;
-  padding: 60px 24px;
 }
 
 #result-icon   { font-size: 3rem; line-height: 1; }

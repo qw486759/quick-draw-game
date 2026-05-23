@@ -114,6 +114,22 @@ class DrawingCanvas {
 
   /* ── Public API ─────────────────────────────────────────── */
 
+  /**
+   * Returns true if the canvas has any drawn pixels (alpha > 0).
+   * Used to skip inference on a blank canvas without creating tensors.
+   */
+  hasDrawing() {
+    const { width, height } = this.canvas;
+    const data = this.ctx.getImageData(0, 0, width, height).data;
+
+    // Check alpha channel (every 4th byte) for any non-zero value
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] > 0) return true;
+    }
+
+    return false;
+  }
+  
   clear() {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     if (this.onChange) this.onChange();

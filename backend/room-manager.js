@@ -71,6 +71,7 @@ function createRoom(roomName, maxPlayers, hostSocketId, hostName) {
     currentPrompt: null,
     roundTimer: null,
     submittedScores: {},
+    updatedAt: Date.now(),
   };
 
   return publicRoom(rooms[id]);
@@ -109,6 +110,7 @@ function disconnectPlayer(socketId) {
 
   const player = room.players.find((p) => p.id === socketId);
   if (player) player.connected = false;
+  room.updatedAt = Date.now();
 
   // Host promotion only applies in "waiting" state.
   // During "playing" or "finished", the disconnect is a page navigation —
@@ -179,6 +181,49 @@ function getRawRoom(roomId) {
   return rooms[roomId] || null;
 }
 
+/**
+ * Delete rooms that have been empty or finished for too long.
+ * Called periodically by server.js to prevent memory accumulation.
+ * @param {number} maxAgeMs - max milliseconds a dead room is kept (default 15 min)
+ */
+function cleanupRooms(maxAgeMs = 15 * 60 * 1000) {
+  const now = Date.now();
+  let count = 0;
+
+  Object.values(rooms).forEach((room) => {
+    const connectedCount = room.players.filter((p) => p.connected).length;
+    const isEmpty    = connectedCount === 0;
+    const isFinished = room.status === 'finished';
+    const isStale    = room.updatedAt && (now - room.updatedAt) > maxAgeMs;
+
+    if (isEmpty && isStale) {
+      if (room.roundTimer) clearInterval(room.roundTimer);
+      delete rooms[room.id];
+      count++;
+    } else if (isFinished && isStale) {
+      if (room.roundTimer) clearInterval(room.roundTimer);
+      delete rooms[room.id];
+      count++;
+    }
+  });
+
+  if (count > 0) {
+    console.log(`[cleanup] Removed ${count} stale room(s)`);
+  }
+}
+
+/**
+ * Immediately delete a room by ID and clear its timer.
+ * @param {string} roomId
+ */
+function deleteRoom(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  if (room.roundTimer) clearInterval(room.roundTimer);
+  delete rooms[roomId];
+  console.log(`[room] Room ${roomId} deleted (all players gone)`);
+}
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
@@ -193,4 +238,6 @@ module.exports = {
   findRoomByPlayerName,
   getRawRoom,
   publicRoom,
+  cleanupRooms,
+  deleteRoom,
 };
