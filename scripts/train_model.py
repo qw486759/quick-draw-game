@@ -1,7 +1,6 @@
 """
 train_model.py
 Train a CNN on Quick Draw .npy data and save as Keras .h5 format.
-Then convert to TF.js using the command line tool separately.
 
 Usage:
     python scripts/train_model.py
@@ -12,21 +11,33 @@ import numpy as np
 import tensorflow as tf
 
 # ── Config ─────────────────────────────────────────────────────────────────
-CATEGORIES        = ['cat', 'house', 'star', 'fish', 'sun']
-DATA_DIR          = os.path.join(os.path.dirname(__file__), 'data')
-MODEL_OUTPUT_DIR  = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'assets', 'model')
-WORDS_OUTPUT_DIR  = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'assets', 'words')
-H5_OUTPUT_PATH    = os.path.join(os.path.dirname(__file__), 'quickdraw_model.h5')
+CATEGORIES = [
+    # easy (12)
+    'cat', 'dog', 'house', 'sun', 'tree', 'fish', 'star',
+    'apple', 'banana', 'moon', 'sailboat', 'basketball',
+    # medium (19)
+    'car', 'airplane', 'umbrella', 'guitar', 'clock', 'flower', 'bicycle',
+    'bird', 'snake', 'pizza', 'cake', 'chair', 'book', 'cup',
+    'hat', 'key', 'mushroom', 'pants', 'door',
+    # hard (17)
+    'elephant', 'penguin', 'crown', 'lighthouse', 'snowflake', 'cactus',
+    'rabbit', 'duck', 'owl', 'lobster', 'scorpion',
+    'violin', 'hammer', 'scissors', 'compass', 'hourglass', 'ladder',
+]
 
-SAMPLES_PER_CLASS = 15000
+DATA_DIR         = os.path.join(os.path.dirname(__file__), 'data')
+H5_OUTPUT_PATH   = os.path.join(os.path.dirname(__file__), 'quickdraw_model.h5')
+MODEL_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'assets', 'model')
+
+SAMPLES_PER_CLASS = 10000   # reduced to keep memory manageable with 48 classes
 TRAIN_SPLIT       = 0.8
 BATCH_SIZE        = 256
-EPOCHS            = 15
+EPOCHS            = 20
 IMAGE_SIZE        = 28
-# ──────────────────────────────────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────────────────────
 
 
-# ── Step 1: Load .npy files ────────────────────────────────────────────────
+# ── Step 1: Load .npy files ─────────────────────────────────────────────────
 def load_data():
     print('\nLoading data...')
     all_images = []
@@ -37,17 +48,13 @@ def load_data():
 
         if not os.path.exists(file_path):
             print(f'\nERROR: File not found: {file_path}')
-            print('Make sure all .npy files are in scripts/data/')
             exit(1)
 
-        print(f'  Reading {category}.npy...')
+        print(f'  [{class_idx+1:2d}/{len(CATEGORIES)}] {category}')
         data  = np.load(file_path)
-        total = data.shape[0]
-        n     = min(SAMPLES_PER_CLASS, total)
-        print(f'    Total: {total}, using: {n}')
+        n     = min(SAMPLES_PER_CLASS, data.shape[0])
 
-        samples = data[:n].astype('float32')
-        samples = 1.0 - samples / 255.0
+        samples = 1.0 - data[:n].astype('float32') / 255.0
         samples = samples.reshape(n, IMAGE_SIZE, IMAGE_SIZE, 1)
 
         all_images.append(samples)
@@ -56,39 +63,47 @@ def load_data():
     x = np.concatenate(all_images, axis=0)
     y = np.array(all_labels)
 
-    total_samples = len(y)
-    print(f'\n  Total samples: {total_samples}')
+    print(f'\n  Total samples: {len(y)}')
 
-    print('  Shuffling data...')
-    indices = np.random.permutation(total_samples)
+    indices = np.random.permutation(len(y))
     x, y    = x[indices], y[indices]
 
     y = tf.keras.utils.to_categorical(y, num_classes=len(CATEGORIES))
 
-    train_count = int(total_samples * TRAIN_SPLIT)
-    x_train, x_val = x[:train_count], x[train_count:]
-    y_train, y_val = y[:train_count], y[train_count:]
+    split       = int(len(x) * TRAIN_SPLIT)
+    x_train, x_val = x[:split], x[split:]
+    y_train, y_val = y[:split], y[split:]
 
-    print(f'  Train: {train_count}, Validation: {total_samples - train_count}')
+    print(f'  Train: {len(x_train)}, Val: {len(x_val)}')
     return x_train, y_train, x_val, y_val
 
 
-# ── Step 2: Build CNN model ────────────────────────────────────────────────
+# ── Step 2: Build CNN ────────────────────────────────────────────────────────
 def build_model():
     print('\nBuilding CNN model...')
 
     model = tf.keras.Sequential([
+        # Block 1
         tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same',
                                input_shape=(IMAGE_SIZE, IMAGE_SIZE, 1)),
+        tf.keras.layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D((2, 2)),
         tf.keras.layers.Dropout(0.25),
 
+        # Block 2
+        tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.Conv2D(64, (3, 3), activation='relu', padding='same'),
         tf.keras.layers.MaxPooling2D((2, 2)),
         tf.keras.layers.Dropout(0.25),
 
+        # Block 3
+        tf.keras.layers.Conv2D(128, (3, 3), activation='relu', padding='same'),
+        tf.keras.layers.MaxPooling2D((2, 2)),
+        tf.keras.layers.Dropout(0.25),
+
+        # Classifier
         tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(128, activation='relu'),
+        tf.keras.layers.Dense(256, activation='relu'),
         tf.keras.layers.Dropout(0.5),
         tf.keras.layers.Dense(len(CATEGORIES), activation='softmax'),
     ])
@@ -103,15 +118,29 @@ def build_model():
     return model
 
 
-# ── Step 3: Train ──────────────────────────────────────────────────────────
+# ── Step 3: Train ────────────────────────────────────────────────────────────
 def train_model(model, x_train, y_train, x_val, y_val):
-    print(f'\nStarting training ({EPOCHS} epochs, batch size {BATCH_SIZE})...\n')
+    print(f'\nTraining ({EPOCHS} epochs, batch {BATCH_SIZE})...\n')
+
+    callbacks = [
+        # Reduce LR when val_accuracy plateaus
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='val_accuracy', factor=0.5,
+            patience=3, min_lr=1e-5, verbose=1
+        ),
+        # Stop early if no improvement for 5 epochs
+        tf.keras.callbacks.EarlyStopping(
+            monitor='val_accuracy', patience=5,
+            restore_best_weights=True, verbose=1
+        ),
+    ]
 
     history = model.fit(
         x_train, y_train,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         validation_data=(x_val, y_val),
+        callbacks=callbacks,
         verbose=1,
     )
 
@@ -122,7 +151,7 @@ def train_model(model, x_train, y_train, x_val, y_val):
     print(f'  Final val accuracy: {final_val_acc * 100:.1f}%')
 
 
-# ── Step 4: Quick validation ───────────────────────────────────────────────
+# ── Step 4: Quick validation ─────────────────────────────────────────────────
 def quick_validate(model, x_val, y_val):
     print('\nQuick validation (first 10 samples)...')
 
@@ -136,42 +165,27 @@ def quick_validate(model, x_val, y_val):
         pred  = CATEGORIES[pred_indices[i]]
         truth = CATEGORIES[true_indices[i]]
         mark  = 'OK' if pred == truth else 'WRONG'
-        print(f'  [{i+1}] predicted: {pred:<10} actual: {truth:<10} {mark}')
+        print(f'  [{i+1}] predicted: {pred:<12} actual: {truth:<12} {mark}')
         if pred == truth:
             correct += 1
 
     print(f'\n  Result: {correct}/10 correct')
 
 
-# ── Step 5: Save as .h5 ────────────────────────────────────────────────────
+# ── Step 5: Save .h5 ─────────────────────────────────────────────────────────
 def save_model(model):
-    import json
-
-    os.makedirs(WORDS_OUTPUT_DIR, exist_ok=True)
-
-    # Save as Keras .h5 format
     model.save(H5_OUTPUT_PATH)
-    print(f'\nModel saved to: {H5_OUTPUT_PATH}')
-
-    # Write categories.json for the frontend
-    categories_path = os.path.join(WORDS_OUTPUT_DIR, 'categories.json')
-    with open(categories_path, 'w') as f:
-        json.dump({'categories': CATEGORIES}, f, indent=2)
-    print(f'Categories saved to: {categories_path}')
-
-    print('\n---------------------------------------------')
-    print('Next step: convert to TF.js format by running:')
-    print(f'  tensorflowjs_converter --input_format keras {H5_OUTPUT_PATH} {MODEL_OUTPUT_DIR}')
-    print('---------------------------------------------')
+    print(f'\nModel saved: {H5_OUTPUT_PATH}')
+    print('\nNext step: run convert_model.py to convert to TF.js format')
 
 
-# ── Main ───────────────────────────────────────────────────────────────────
+# ── Main ─────────────────────────────────────────────────────────────────────
 def main():
-    print('===========================================')
-    print('  Quick Draw Model Trainer (Python)')
-    print(f'  Categories: {", ".join(CATEGORIES)}')
-    print('===========================================')
-    print(f'\nTensorFlow version: {tf.__version__}')
+    print('=' * 50)
+    print('  Quick Draw Model Trainer')
+    print(f'  {len(CATEGORIES)} categories, {SAMPLES_PER_CLASS} samples each')
+    print('=' * 50)
+    print(f'TensorFlow: {tf.__version__}')
 
     x_train, y_train, x_val, y_val = load_data()
     model = build_model()
