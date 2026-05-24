@@ -42,7 +42,15 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "hostName is required." });
   }
 
-  const max = parseInt(maxPlayers, 10) || 6;
+  const max = maxPlayers === undefined || maxPlayers === null || maxPlayers === ""
+    ? 6
+    : Number(maxPlayers);
+
+  if (!Number.isInteger(max) || max < 2 || max > 6) {
+    return res.status(400).json({
+      error: "maxPlayers must be an integer from 2 to 6.",
+    });
+  }
 
   // We don't have a socket ID yet at REST time.
   // Pass a placeholder; server.js will update hostId when socket connects.

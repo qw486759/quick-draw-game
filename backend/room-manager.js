@@ -19,7 +19,13 @@ const rooms = {};
 
 /** Generate a short 6-char room ID (good enough for in-memory use). */
 function generateRoomId() {
-  return randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+  let id;
+
+  do {
+    id = randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase();
+  } while (rooms[id]);
+
+  return id;
 }
 
 /** Return a safe public view of a room (strip internal timer refs). */

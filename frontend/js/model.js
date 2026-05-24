@@ -2,8 +2,10 @@
  * model.js
  * Handles TF.js model loading and inference.
  *
- * IMPORTANT: CATEGORIES order must exactly match the training order used in train-model.js.
- * Training order: see CATEGORIES array below (20 classes)
+ * IMPORTANT:
+ * The category order loaded from assets/words/categories.json
+ * must match the CATEGORIES order used by scripts/train_model.py
+ * and the output layer order of the converted TF.js model.
  */
 
 // Capitalize first letter for display

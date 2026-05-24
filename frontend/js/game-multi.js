@@ -116,16 +116,13 @@ function runInference() {
 
   renderPredictions(topPredictions.slice(0, 3));
 
-  const best       = topPredictions[0];
-  const roundScore = Math.round(best.confidence * 1000);
+  const best = topPredictions[0];
 
   // Export canvas as a small PNG for the gallery.
-  // We scale to 120×120 so it's legible in the end-screen but not huge.
   const drawing = getCanvasSnapshot(120);
 
   socket.emit("submit_score", {
     roomId,
-    score:      roundScore,
     topLabel:   best.label,
     confidence: best.confidence,
     drawing,

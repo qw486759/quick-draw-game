@@ -357,7 +357,7 @@ io.on("connection", (socket) => {
   // Players send this whenever their AI confidence updates (or at round
   // end). The server stores the latest value and uses it when the timer
   // expires. Sending multiple times is fine — last write wins.
-  // Payload: { roomId: string, score: number, topLabel: string, confidence: number }
+  // Payload: { roomId: string, topLabel: string, confidence: number, drawing?: string }
   // ------------------------------------------------------------------
   socket.on("submit_score", (payload) => {
     if (!isObject(payload)) return;
@@ -530,23 +530,24 @@ function endRound(roomId) {
   if (!room) return;
 
   // Build this round's score list — one entry per connected player
-  const roundScores = room.players
-    .filter((p) => p.connected)
-    .map((p) => {
-      const submission = room.submittedScores[p.id] || {
-        score: 0,
-        topLabel: "",
-        confidence: 0,
-      };
-      return {
-        playerId:   p.id,
-        playerName: p.name,
-        roundScore: submission.score,
-        topLabel:   submission.topLabel,
-        confidence: submission.confidence,
-        drawing:    submission.drawing || null,
-      };
-    });
+  // Include all players (connected or not) so the leaderboard stays consistent.
+  // Disconnected players receive 0 for the round rather than disappearing.
+  const roundScores = room.players.map((p) => {
+    const submission = room.submittedScores[p.id] || {
+      score: 0,
+      topLabel: "",
+      confidence: 0,
+    };
+    return {
+      playerId:   p.id,
+      playerName: p.name,
+      connected:  p.connected,
+      roundScore: p.connected ? submission.score : 0,
+      topLabel:   submission.topLabel,
+      confidence: submission.confidence,
+      drawing:    submission.drawing || null,
+    };
+  });
 
   // Sort descending by roundScore to determine rank
   roundScores.sort((a, b) => b.roundScore - a.roundScore);

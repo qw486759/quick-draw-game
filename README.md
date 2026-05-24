@@ -24,7 +24,7 @@ A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CN
 | Backend | Node.js + Express |
 | Model | Custom CNN trained on Google Quick Draw! dataset |
 
-> The server never does ML inference — all AI runs client-side, zero latency.
+> The server never does ML inference — all AI runs client-side, avoiding server round-trip latency.
 
 ---
 
