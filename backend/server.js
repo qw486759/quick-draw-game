@@ -101,6 +101,14 @@ const app = express();
 const server = http.createServer(app);
 
 // Parse JSON bodies for REST endpoints
+const cors = require('cors');
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://quick-draw-game.vercel.app',
+  ],
+  methods: ['GET', 'POST'],
+}));
 app.use(express.json());
 
 // Serve the entire frontend/ folder as static files.
