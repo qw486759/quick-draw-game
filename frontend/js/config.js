@@ -5,5 +5,7 @@
  * In production, set this to the Render backend URL.
  */
 const APP_CONFIG = {
-  SOCKET_URL: '',  // e.g. 'https://your-app.onrender.com'
+  SOCKET_URL: window.location.hostname === 'localhost'
+    ? ''
+    : 'https://quick-draw-game.onrender.com',
 };
