@@ -184,7 +184,9 @@ round_end ←────────────────────── 
 **Key design decisions:**
 - Scores are only broadcast **after** the round ends — players can't see each other's scores mid-round
 - Timer runs server-side to prevent client-side cheating
-- Score is calculated server-side from `topLabel` and `confidence` to prevent arbitrary score injection
+- Score is calculated server-side from bounded client inference outputs, preventing direct arbitrary score injection.
+- Full anti-cheat would require server-side inference or signed inference results, which is intentionally out of scope for this browser-first ML demo.
+- Room host identity is verified via a `hostToken` issued at room creation — prevents the first socket to connect from claiming host
 
 ---
 

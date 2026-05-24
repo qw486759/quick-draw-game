@@ -227,7 +227,8 @@ const socket = SocketClient.connect();
 
 socket.on("connect", () => {
   mySocketId = socket.id;
-  socket.emit("join_room", { roomId, playerName });
+  const hostToken = sessionStorage.getItem(`hostToken_${roomId}`) || null;
+  socket.emit("join_room", { roomId, playerName, hostToken });
   addNotif(`Connected as ${playerName}`, "info");
 });
 

@@ -12,6 +12,7 @@
 const express = require("express");
 const router = express.Router();
 const roomManager = require("../room-manager");
+const { randomUUID } = require("crypto");
 
 // GET /api/rooms
 // Returns only waiting/playing rooms — finished rooms are excluded from lobby.
@@ -45,14 +46,17 @@ router.post("/", (req, res) => {
 
   // We don't have a socket ID yet at REST time.
   // Pass a placeholder; server.js will update hostId when socket connects.
+  const hostToken = randomUUID();
+
   const room = roomManager.createRoom(
     roomName.trim(),
     max,
-    "pending",     // placeholder hostId — overwritten on first join_room
-    hostName.trim()
+    "pending",
+    hostName.trim(),
+    hostToken
   );
 
-  res.status(201).json({ roomId: room.id, room });
+  res.status(201).json({ roomId: room.id, hostToken, room });
 });
 
 module.exports = router;

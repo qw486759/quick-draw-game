@@ -235,7 +235,8 @@ createRoomBtn.addEventListener("click", async () => {
       return;
     }
 
-    const { roomId } = await res.json();
+    const { roomId, hostToken } = await res.json();
+    sessionStorage.setItem(`hostToken_${roomId}`, hostToken);
     window.location.href =
       `room.html?roomId=${roomId}&name=${encodeURIComponent(playerName)}&host=1`;
 

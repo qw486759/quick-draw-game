@@ -54,13 +54,14 @@ function publicRoom(room) {
  * @param {string} hostName
  * @returns {object} The new room (public view)
  */
-function createRoom(roomName, maxPlayers, hostSocketId, hostName) {
+function createRoom(roomName, maxPlayers, hostSocketId, hostName, hostToken) {
   const id = generateRoomId();
 
   rooms[id] = {
     id,
     name: roomName,
     hostId: hostSocketId,
+    hostToken: hostToken || null,
     status: "waiting",
     players: [
       { id: hostSocketId, name: hostName, score: 0, connected: true, ready: false },
@@ -182,6 +183,16 @@ function getRawRoom(roomId) {
 }
 
 /**
+ * Update the room's last-activity timestamp.
+ * Call this after any mutation to keep cleanup logic accurate.
+ * @param {string} roomId
+ */
+function touchRoom(roomId) {
+  const room = rooms[roomId];
+  if (room) room.updatedAt = Date.now();
+}
+
+/**
  * Delete rooms that have been empty or finished for too long.
  * Called periodically by server.js to prevent memory accumulation.
  * @param {number} maxAgeMs - max milliseconds a dead room is kept (default 15 min)
@@ -238,6 +249,7 @@ module.exports = {
   findRoomByPlayerName,
   getRawRoom,
   publicRoom,
+  touchRoom,
   cleanupRooms,
   deleteRoom,
 };

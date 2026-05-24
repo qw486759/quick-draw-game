@@ -205,11 +205,20 @@ io.on("connection", (socket) => {
 
     // -- Normal join (room is "waiting") ------------------------------------
     // If the room was created via REST, its hostId is "pending".
-    // The first socket to join with this roomId is the host -- update it now.
+    // Only the player who carries the correct hostToken can claim host.
     if (rawRoom && rawRoom.hostId === "pending") {
-      rawRoom.hostId = socket.id;
-      const placeholder = rawRoom.players.find((p) => p.id === "pending");
-      if (placeholder) placeholder.id = socket.id;
+      const hostToken = readString(payload.hostToken, 40);
+
+      if (hostToken && hostToken === rawRoom.hostToken) {
+        // Verified host — assign socket as host
+        rawRoom.hostId = socket.id;
+        const placeholder = rawRoom.players.find((p) => p.id === "pending");
+        if (placeholder) placeholder.id = socket.id;
+      } else {
+        // Wrong or missing token — reject
+        socket.emit("join_error", { error: "Host has not joined yet. Please try again." });
+        return;
+      }
     }
 
     const result = roomManager.joinRoom(roomId, socket.id, playerName);
@@ -222,6 +231,7 @@ io.on("connection", (socket) => {
     socket.join(roomId);
     socket.emit("join_success", { room: result.room });
     socket.to(roomId).emit("room_update", { players: result.room.players, hostId: result.room.hostId });
+    roomManager.touchRoom(roomId);
 
     console.log(`[room] ${playerName} (${socket.id}) joined ${roomId}`);
   });
@@ -303,6 +313,7 @@ io.on("connection", (socket) => {
       totalRounds: TOTAL_ROUNDS,
       roundDuration: ROUND_DURATION,
     });
+    roomManager.touchRoom(roomId);
 
     // Small delay so clients can finish their page transition before
     // the first new_round fires.
@@ -331,6 +342,7 @@ io.on("connection", (socket) => {
     const pub = roomManager.publicRoom(room);
     // Broadcast to everyone so all clients see updated ready indicators
     io.to(roomId).emit("room_update", { players: pub.players, hostId: pub.hostId });
+    roomManager.touchRoom(roomId);
 
     console.log(`[room] ${player.name} is ${player.ready ? "ready" : "not ready"} in ${roomId}`);
   });
@@ -370,6 +382,7 @@ io.on("connection", (socket) => {
       confidence,
       drawing,
     };
+    roomManager.touchRoom(roomId);
   });
 
   // ------------------------------------------------------------------
@@ -407,6 +420,7 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("room_reset", {
       room: roomManager.publicRoom(room),
     });
+    roomManager.touchRoom(roomId);
   });
 });
 
@@ -569,6 +583,7 @@ function endRound(roomId) {
     scores:      roundScores,
     prompt:      room.currentPrompt,
   });
+  roomManager.touchRoom(roomId);
 
   // Decide what happens next
   if (room.currentRound >= TOTAL_ROUNDS) {
@@ -614,6 +629,7 @@ function endGame(roomId) {
   room.lastGameEnd = gameEndPayload;
 
   io.to(roomId).emit("game_end", gameEndPayload);
+  roomManager.touchRoom(roomId);
 }
 
 // ---------------------------------------------------------------------------
