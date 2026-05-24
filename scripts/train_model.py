@@ -12,27 +12,19 @@ import tensorflow as tf
 
 # ── Config ─────────────────────────────────────────────────────────────────
 CATEGORIES = [
-    # easy (12)
     'cat', 'dog', 'house', 'sun', 'tree', 'fish', 'star',
-    'apple', 'banana', 'moon', 'sailboat', 'basketball',
-    # medium (19)
     'car', 'airplane', 'umbrella', 'guitar', 'clock', 'flower', 'bicycle',
-    'bird', 'snake', 'pizza', 'cake', 'chair', 'book', 'cup',
-    'hat', 'key', 'mushroom', 'pants', 'door',
-    # hard (17)
     'elephant', 'penguin', 'crown', 'lighthouse', 'snowflake', 'cactus',
-    'rabbit', 'duck', 'owl', 'lobster', 'scorpion',
-    'violin', 'hammer', 'scissors', 'compass', 'hourglass', 'ladder',
 ]
 
 DATA_DIR         = os.path.join(os.path.dirname(__file__), 'data')
 H5_OUTPUT_PATH   = os.path.join(os.path.dirname(__file__), 'quickdraw_model.h5')
 MODEL_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'assets', 'model')
 
-SAMPLES_PER_CLASS = 10000   # reduced to keep memory manageable with 48 classes
+SAMPLES_PER_CLASS = 15000
 TRAIN_SPLIT       = 0.8
 BATCH_SIZE        = 256
-EPOCHS            = 20
+EPOCHS            = 15
 IMAGE_SIZE        = 28
 # ───────────────────────────────────────────────────────────────────────────
 

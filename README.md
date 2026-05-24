@@ -112,20 +112,56 @@ quickdraw/
 
 ## Model
 
-- **Architecture**: Custom CNN (3 conv blocks + dense layers) trained with Keras / TensorFlow
+- **Architecture**: Custom CNN with 3 convolutional blocks and dense classifier layers
 - **Dataset**: [Google Quick Draw!](https://github.com/googlecreativelab/quickdraw-dataset) `.npy` bitmap files
 - **Categories**: 20 classes — cat, dog, house, sun, tree, fish, star, car, airplane, umbrella, guitar, clock, flower, bicycle, elephant, penguin, crown, lighthouse, snowflake, cactus
-- **Training samples**: 15,000 per class (300,000 total)
-- **Validation accuracy**: 88.4%
-- **Format**: Keras `.h5` converted to TF.js `LayersModel` via a custom script (see `scripts/convert_model.py`)
+- **Training samples**: 15,000 per class, 300,000 total
+- **Training split**: 80% train / 20% validation
+- **Validation accuracy**: 88.4% overall validation accuracy on the 20-class dataset
+- **Format**: Keras `.h5` converted to TensorFlow.js `LayersModel` format (`model.json` + `weights.bin`)
+
+### Training pipeline
+
+The model is trained offline using Python and is not part of the Node.js runtime:
+
+```
+Python 3.10 + TensorFlow 2.15 + Keras
+        ↓
+scripts/train_model.py
+  - loads Quick Draw .npy bitmap files
+  - samples 15,000 drawings per class
+  - preprocesses each 28x28 bitmap into grayscale tensor format
+  - trains the CNN
+  - saves a Keras .h5 model
+        ↓
+scripts/convert_model.py
+  - converts the Keras .h5 model into TF.js LayersModel artifacts
+        ↓
+frontend/assets/model/
+  - model.json
+  - weights.bin
+```
+
+The Node.js backend only serves the frontend and handles multiplayer room state, server-side timers, and score finalization. All ML inference runs locally in the browser via TensorFlow.js.
 
 ### Why a custom converter?
 
-The standard `tensorflowjs_converter` CLI had version incompatibilities with the training environment (Python 3.10 + TensorFlow 2.15). `convert_model.py` manually serializes Keras layer weights into the TF.js binary format, bypassing the CLI entirely.
+The standard `tensorflowjs_converter` CLI had version incompatibilities with the training environment (Python 3.10 + TensorFlow 2.15). `scripts/convert_model.py` manually serializes the Keras model into TensorFlow.js LayersModel format, preserving the trained layer order and output class order used by the browser runtime.
 
 ### Pixel polarity
 
-Quick Draw `.npy` data uses black-background / white-stroke encoding. The model was trained with `pixel / 255` normalization (no inversion), so the canvas pipeline outputs white-background / black-stroke images to match the training distribution exactly.
+Quick Draw `.npy` bitmap files are loaded as 28×28 grayscale arrays. During training, the preprocessing step converts the raw bitmap values with:
+
+```python
+samples = 1.0 - data[:n].astype("float32") / 255.0
+```
+
+This aligns the training tensors with the browser canvas pipeline:
+
+- white background = `1.0`
+- black stroke = `0.0`
+
+Because the browser canvas already produces this same convention, inference does not apply an additional inversion step.
 
 ---
 

@@ -18,6 +18,14 @@ const roomManager = require("./room-manager");
 const roomsRouter = require("./routes/rooms");
 
 // ---------------------------------------------------------------------------
+// CORS config — shared between REST and Socket.io
+// ---------------------------------------------------------------------------
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://quick-draw-game.vercel.app',
+];
+
+// ---------------------------------------------------------------------------
 // Payload validation helpers
 // ---------------------------------------------------------------------------
 
@@ -103,10 +111,7 @@ const server = http.createServer(app);
 // Parse JSON bodies for REST endpoints
 const cors = require('cors');
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://quick-draw-game.vercel.app',
-  ],
+  origin: allowedOrigins,
   methods: ['GET', 'POST'],
 }));
 app.use(express.json());
@@ -134,10 +139,8 @@ app.get("*", (req, res) => {
 
 const io = new Server(server, {
   cors: {
-    // Allow requests from any origin during development.
-    // In production, replace "*" with your actual frontend URL.
-    origin: "*",
-    methods: ["GET", "POST"],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
   },
 });
 
