@@ -163,6 +163,10 @@ This aligns the training tensors with the browser canvas pipeline:
 
 Because the browser canvas already produces this same convention, inference does not apply an additional inversion step.
 
+### Preprocessing alignment
+
+The browser canvas pipeline is intentionally kept aligned with the trained model artifact. The current implementation resizes the cropped drawing directly to 28×28 without preserving aspect ratio, which mirrors the preprocessing used during training. Alternative strategies such as aspect-ratio-preserving resize with center padding were evaluated but deferred — they require retraining and end-to-end validation to avoid training/inference distribution mismatch.
+
 ---
 
 ## Multiplayer Architecture

@@ -39,6 +39,17 @@ const CHALLENGE_CONFIG = {
   localStorageKey: 'quickdraw_challenge_best',
 };
 
+// Explicit phase enum for the challenge mode state machine.
+// Replaces the implicit isDrawing boolean for clearer state management.
+const CHALLENGE_PHASE = {
+  LOADING:     'loading',
+  READY:       'ready',
+  ROUND_START: 'round_start',
+  DRAWING:     'drawing',
+  PASS:        'pass',
+  GAME_OVER:   'game_over',
+};
+
 // Hint text thresholds — shown in the confidence panel.
 const HINT_COLD  = 0.30;   // below this: "Keep drawing!"
 const HINT_WARM  = 0.55;   // below this: "Getting closer…"
@@ -56,7 +67,7 @@ let state = {
   roundTimerId:   null,   // setInterval ID for the round clock
   debounceTimer:  null,   // setTimeout ID for inference debounce
   passTimerId:    null,   // setTimeout ID for the pass screen transition
-  isDrawing:      false,  // true while the drawing screen is active
+  phase:          CHALLENGE_PHASE.LOADING, // explicit state machine phase
   personalBest:   0,      // rounds cleared, loaded from localStorage
   usedWords:      [],
 };
@@ -381,6 +392,7 @@ function maybeSavePersonalBest(roundsCleared) {
 
 // ---- READY SCREEN -------------------------------------------
 function enterReady() {
+  state.phase = CHALLENGE_PHASE.READY;
   loadPersonalBest();
   DOM.personalBestDisplay.textContent =
     state.personalBest > 0 ? `Round ${state.personalBest}` : '—';
@@ -396,6 +408,7 @@ function enterReady() {
  * @param {Object} categories - parsed categories.json
  */
 function enterRoundStart(prompt, round, categories) {
+  state.phase = CHALLENGE_PHASE.ROUND_START;
   const tier      = getDifficultyTier(round);
   const threshold = getThreshold(round);
   const timeLimit = getTimeLimit(round);
@@ -430,6 +443,7 @@ function enterRoundStart(prompt, round, categories) {
  * Inference runs on a debounce whenever the player lifts the pen.
  */
 function enterDrawing(prompt, round, threshold, timeLimit) {
+  state.phase = CHALLENGE_PHASE.DRAWING;
   state.round = round;
   const tier = getDifficultyTier(round);
 
@@ -450,7 +464,6 @@ function enterDrawing(prompt, round, threshold, timeLimit) {
   updateConfidenceUI(0, threshold);
 
   showScreen(SCREENS.drawing);
-  state.isDrawing = true;
 
   // ---- Round timer ----------------------------------------
   clearRoundTimer(); // safety: clear any leftover timer
@@ -473,7 +486,7 @@ function enterDrawing(prompt, round, threshold, timeLimit) {
  * @param {Object} categories
  */
 function enterPass(clearedRound, roundScore, categories) {
-  state.isDrawing = false;
+  state.phase = CHALLENGE_PHASE.PASS;
   clearRoundTimer();
 
   DOM.passRoundLabel.textContent = `Round ${clearedRound} cleared`;
@@ -483,7 +496,7 @@ function enterPass(clearedRound, roundScore, categories) {
 
   clearTimeout(state.passTimerId);
   state.passTimerId = setTimeout(() => {
-    if (state.isDrawing) return; // safety guard
+    if (state.phase !== CHALLENGE_PHASE.PASS) return; // safety guard
     const nextRound  = clearedRound + 1;
     const nextPrompt = pickWord(getDifficultyTier(nextRound), categories);
     state.currentPrompt = nextPrompt;
@@ -497,7 +510,7 @@ function enterPass(clearedRound, roundScore, categories) {
  * @param {number} roundsCleared - how many rounds they actually passed
  */
 function enterGameOver(failedPrompt, roundsCleared) {
-  state.isDrawing = false;
+  state.phase = CHALLENGE_PHASE.GAME_OVER;
   clearRoundTimer();
 
   const isNewRecord = maybeSavePersonalBest(roundsCleared);
@@ -530,7 +543,7 @@ function enterGameOver(failedPrompt, roundsCleared) {
  * @param {Object} categories
  */
 function runInference(threshold, categories) {
-  if (!state.isDrawing) return;
+  if (state.phase !== CHALLENGE_PHASE.DRAWING) return;
 
   const tensor      = drawingCanvas.getImageTensor();
   const predictions = aiModel.predict(tensor); // [{label, confidence}, ...]
@@ -547,8 +560,7 @@ function runInference(threshold, categories) {
   // Check pass condition: label matches AND confidence clears the threshold
   const { correct } = aiModel.checkCorrect(predictions, state.currentPrompt, threshold);
   if (correct) {
-    // Stop drawing phase immediately
-    state.isDrawing = false;
+    // Stop drawing phase immediately — enterPass will set phase to PASS
     clearRoundTimer();
 
     const roundScore = calcChallengeScore(state.round);
@@ -592,7 +604,7 @@ async function main() {
   // We read 'threshold' fresh each time so it always reflects the
   // current round (the value is closed over via state.round).
   DOM.canvas.addEventListener('strokeend', () => {
-    if (!state.isDrawing) return;
+    if (state.phase !== CHALLENGE_PHASE.DRAWING) return;
     clearTimeout(state.debounceTimer);
     state.debounceTimer = setTimeout(() => {
       const threshold = getThreshold(state.round);
@@ -619,7 +631,6 @@ async function main() {
 
   // ---- Button: Exit mid-game ----------------------------------
   DOM.btnExit.addEventListener('click', () => {
-    state.isDrawing = false;
     clearAllTimers();
     enterReady();
   });
