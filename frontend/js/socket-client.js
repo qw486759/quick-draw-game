@@ -27,7 +27,7 @@ const SocketClient = (() => {
    * @param {string} [serverUrl] - Defaults to the current origin (same host).
    * @returns {Socket}
    */
-  function connect(serverUrl = window.location.origin) {
+  function connect(serverUrl = APP_CONFIG.SOCKET_URL || window.location.origin) {
     if (socket && socket.connected) return socket;
 
     socket = io(serverUrl, {

@@ -4,7 +4,8 @@
   "description": "Quick Draw - browser-based hand-drawing AI game",
   "scripts": {
     "train": "node scripts/train-model.js",
-    "dev": "node backend/server.js"
+    "dev": "node backend/server.js",
+    "start": "node backend/server.js"
   },
   "dependencies": {
     "@tensorflow/tfjs": "^4.22.0",
