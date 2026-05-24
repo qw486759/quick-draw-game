@@ -692,7 +692,7 @@ function handlePlayerLeave(socket, roomId, reason) {
         playerName: leavingPlayerName,
         connectedCount,
       });
-    }, 2000);
+    }, 8000);
 
     return;
   }
