@@ -303,7 +303,7 @@ io.on("connection", (socket) => {
 
     // Small delay so clients can finish their page transition before
     // the first new_round fires.
-    setTimeout(() => startRound(roomId), 1500);
+    setTimeout(() => startRound(roomId), 5000);
   });
 
   // ------------------------------------------------------------------
