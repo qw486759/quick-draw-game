@@ -123,6 +123,11 @@ app.use(express.static(path.join(__dirname, "../frontend")));
 // REST routes
 app.use("/api/rooms", roomsRouter);
 
+// Health check endpoint — used to verify backend is awake
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, service: "quick-draw-backend" });
+});
+
 // Leaderboard REST endpoint — returns top 5
 app.get("/api/leaderboard", (req, res) => {
   res.json(leaderboard.slice(0, 5));

@@ -35,7 +35,11 @@ A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CN
 | Frontend (Vercel) | https://quick-draw-game.vercel.app |
 | Backend (Render) | https://quick-draw-game.onrender.com |
 
-> Note: The backend runs on Render's free tier and may take ~50 seconds to wake up after inactivity.
+> Note: The backend runs on Render's free tier and may take ~50 seconds to wake up after inactivity. If Versus Mode initially shows a loading message, the backend is waking up — please wait a moment and refresh.
+
+### Runtime configuration
+
+Because this project intentionally uses Vanilla JS without a build step, frontend runtime configuration is stored in `frontend/js/config.js`. The backend URL is detected at runtime based on `window.location.hostname` — no bundler or environment variable tooling required.
 
 ---
 
@@ -188,9 +192,18 @@ round_end ←────────────────────── 
 **Key design decisions:**
 - Scores are only broadcast **after** the round ends — players can't see each other's scores mid-round
 - Timer runs server-side to prevent client-side cheating
-- Score is calculated server-side from bounded client inference outputs, preventing direct arbitrary score injection.
-- Full anti-cheat would require server-side inference or signed inference results, which is intentionally out of scope for this browser-first ML demo.
+- Score is calculated server-side from bounded client inference outputs, preventing direct arbitrary score injection
 - Room host identity is verified via a `hostToken` issued at room creation — prevents the first socket to connect from claiming host
+- Full anti-cheat would require server-side inference or signed inference results, which is intentionally out of scope for this browser-first ML demo
+
+---
+
+## Known Limitations
+
+- Room state and leaderboard are in-memory and reset when the Render instance restarts.
+- Multiplayer scoring prevents direct score injection, but full anti-cheat would require server-side inference or signed inference outputs.
+- The current model is a 20-class custom CNN; recognition quality varies across categories.
+- Render free tier may cold start after inactivity (~50 seconds on first request).
 
 ---
 

@@ -94,6 +94,11 @@ function joinRoom(roomId, socketId, playerName) {
     return { ok: true, room: publicRoom(room) }; // idempotent
   }
 
+  // Prevent duplicate names within the same room
+  if (room.players.some((p) => p.name.toLowerCase() === playerName.toLowerCase())) {
+    return { ok: false, error: "Name already taken in this room." };
+  }
+
   // New players start as not ready; host is always considered ready
   room.players.push({ id: socketId, name: playerName, score: 0, connected: true, ready: false });
   return { ok: true, room: publicRoom(room) };

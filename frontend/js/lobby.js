@@ -109,7 +109,7 @@ async function fetchRooms() {
     const rooms = await res.json();
     renderRooms(rooms);
   } catch {
-    showToast("Could not load rooms.", true);
+    showToast("Backend is waking up — this may take 30–60 seconds on Render's free tier.", true);
   } finally {
     refreshBtn.classList.remove("spinning");
   }
