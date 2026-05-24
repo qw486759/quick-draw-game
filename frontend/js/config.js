@@ -1,10 +1,10 @@
 /**
  * config.js
  * Runtime configuration for the frontend.
- * In development, SOCKET_URL is empty so socket-client.js uses window.location.origin.
- * In production, set this to the Render backend URL.
+ * Mounted on window.APP_CONFIG so all scripts can access it
+ * regardless of load order.
  */
-const APP_CONFIG = {
+window.APP_CONFIG = {
   SOCKET_URL: window.location.hostname === 'localhost'
     ? ''
     : 'https://quick-draw-game.onrender.com',

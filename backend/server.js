@@ -164,9 +164,6 @@ io.on("connection", (socket) => {
   const submitRateLimit = { count: 0 };
   const submitRateLimitTimer = setInterval(() => { submitRateLimit.count = 0; }, 1000);
 
-  // Clean up the interval when this socket disconnects to prevent memory leaks.
-  socket.on("disconnect", () => clearInterval(submitRateLimitTimer));
-
   // ------------------------------------------------------------------
   // join_room
   // Emitted by a client when they enter a room page.
@@ -273,6 +270,7 @@ io.on("connection", (socket) => {
   // Fired automatically by Socket.io when the connection drops.
   // ------------------------------------------------------------------
   socket.on("disconnect", () => {
+    clearInterval(submitRateLimitTimer);
     console.log(`[socket] disconnected: ${socket.id}`);
     handlePlayerLeave(socket, null, "disconnect");
   });
@@ -675,7 +673,9 @@ function handlePlayerLeave(socket, roomId, reason) {
   // was always returning undefined because result.room is a publicRoom()
   // snapshot taken after the mutation.
   // Capturing here (from the raw room, before any mutation) fixes both cases.
-  const rawRoomBefore     = roomManager.findRoomByPlayer(socket.id);
+  const rawRoomBefore     = roomId
+    ? roomManager.getRawRoom(roomId)
+    : roomManager.findRoomByPlayer(socket.id);
   const leavingPlayerName = rawRoomBefore?.players.find((p) => p.id === socket.id)?.name ?? "A player";
 
   const result = roomManager.disconnectPlayer(socket.id);

@@ -16,22 +16,29 @@
  */
 
 const SocketClient = (() => {
-  // Socket.io client is loaded via <script> tag (/socket.io/socket.io.js).
-  // `io` is the global function it exposes.
-
   let socket = null;
+
+  /**
+   * Reads the backend URL from window.APP_CONFIG.
+   * Falls back to window.location.origin if config is missing or SOCKET_URL
+   * is empty (which is correct for local dev — same-origin connection).
+   * @returns {string}
+   */
+  function getDefaultSocketUrl() {
+    const config = window.APP_CONFIG || {};
+    return config.SOCKET_URL || window.location.origin;
+  }
 
   /**
    * Connect to the server (idempotent — safe to call multiple times).
    * If a connected socket already exists, returns it without reconnecting.
-   * @param {string} [serverUrl] - Defaults to the current origin (same host).
+   * @param {string} [serverUrl] - Defaults to getDefaultSocketUrl().
    * @returns {Socket}
    */
-  function connect(serverUrl = (typeof APP_CONFIG !== 'undefined' ? APP_CONFIG.SOCKET_URL : '') || window.location.origin) {
+  function connect(serverUrl = getDefaultSocketUrl()) {
     if (socket && socket.connected) return socket;
 
     socket = io(serverUrl, {
-      // Reconnect automatically if the connection drops
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -54,7 +61,6 @@ const SocketClient = (() => {
 
   /**
    * Return the active socket instance (or null if not connected yet).
-   * Use this to access socket.emit() and socket.on() directly.
    * @returns {Socket|null}
    */
   function getSocket() {
