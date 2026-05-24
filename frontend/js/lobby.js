@@ -105,7 +105,7 @@ playerNameInput.addEventListener("keydown", (e) => {
 async function fetchRooms() {
   refreshBtn.classList.add("spinning");
   try {
-    const res   = await fetch("/api/rooms");
+    const res   = await fetch(`${APP_CONFIG.API_BASE_URL}/api/rooms`);
     const rooms = await res.json();
     renderRooms(rooms);
   } catch {
@@ -172,7 +172,7 @@ setInterval(fetchRooms, 5000);
 
 async function fetchLeaderboard() {
   try {
-    const res     = await fetch("/api/leaderboard");
+    const res     = await fetch(`${APP_CONFIG.API_BASE_URL}/api/leaderboard`);
     const entries = await res.json();
     renderLeaderboard(entries);
   } catch {
@@ -223,7 +223,7 @@ createRoomBtn.addEventListener("click", async () => {
   createRoomBtn.textContent = "Creating…";
 
   try {
-    const res = await fetch("/api/rooms", {
+    const res = await fetch(`${APP_CONFIG.API_BASE_URL}/api/rooms`, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ roomName, maxPlayers, hostName: playerName }),
