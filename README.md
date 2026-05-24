@@ -2,8 +2,9 @@
 
 A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CNN model watches every stroke and tries to name it in real time. Supports single-player modes and multiplayer via WebSocket.
 
-<img width="1919" height="920" alt="image" src="https://github.com/user-attachments/assets/0a43e73b-7bc7-4cad-9164-d33d25d6ba80" />
+**[▶ Play Live Demo](https://quick-draw-game.vercel.app)**
 
+<img width="1919" height="920" alt="image" src="https://github.com/user-attachments/assets/0a43e73b-7bc7-4cad-9164-d33d25d6ba80" />
 
 ---
 
@@ -27,6 +28,17 @@ A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CN
 
 ---
 
+## Live Demo
+
+| Service | URL |
+|---|---|
+| Frontend (Vercel) | https://quick-draw-game.vercel.app |
+| Backend (Render) | https://quick-draw-game.onrender.com |
+
+> Note: The backend runs on Render's free tier and may take ~50 seconds to wake up after inactivity.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -38,8 +50,8 @@ A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CN
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/quick-draw-game.git
-cd quick-draw-game/quickdraw
+git clone https://github.com/qw486759/quick-draw-game.git
+cd quick-draw-game
 
 # Install dependencies
 npm install
@@ -57,41 +69,42 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 quickdraw/
 ├── frontend/
-│   ├── index.html          # Main menu
-│   ├── game.html           # Free mode
-│   ├── challenge.html      # Challenge mode
-│   ├── lobby.html          # Multiplayer lobby
-│   ├── room.html           # Room waiting screen
-│   ├── game-multi.html     # Multiplayer game
+│   ├── index.html              # Main menu
+│   ├── game.html               # Free mode
+│   ├── challenge.html          # Challenge mode
+│   ├── lobby.html              # Multiplayer lobby
+│   ├── room.html               # Room waiting screen
+│   ├── game-multi.html         # Multiplayer game
 │   ├── css/
 │   │   ├── reset.css
-│   │   ├── room-game.css   # Shared design tokens + components
-│   │   ├── game.css        # Free mode + Challenge mode styles
-│   │   ├── game-multi.css  # Multiplayer game styles
-│   │   ├── lobby.css       # Lobby page styles
-│   │   └── index.css       # Main menu styles
+│   │   ├── room-game.css       # Shared design tokens + components
+│   │   ├── game.css            # Free mode + Challenge mode styles
+│   │   ├── game-multi.css      # Multiplayer game styles
+│   │   ├── lobby.css           # Lobby page styles
+│   │   └── index.css           # Main menu styles
 │   ├── js/
-│   │   ├── canvas.js       # Mouse & touch drawing, tensor export
-│   │   ├── model.js        # TF.js model loading + inference
-│   │   ├── scoring.js      # Score calculation (free mode + challenge)
-│   │   ├── game-single.js  # Free mode controller
-│   │   ├── game-challenge.js # Challenge mode controller
-│   │   ├── game-multi.js   # Multiplayer game controller
-│   │   ├── socket-client.js # Socket.io singleton wrapper
-│   │   ├── lobby.js        # Lobby controller
-│   │   └── room.js         # Room controller
+│   │   ├── canvas.js           # Mouse & touch drawing, tensor export
+│   │   ├── model.js            # TF.js model loading + inference
+│   │   ├── scoring.js          # Score calculation (free mode + challenge)
+│   │   ├── game-single.js      # Free mode controller
+│   │   ├── game-challenge.js   # Challenge mode controller
+│   │   ├── game-multi.js       # Multiplayer game controller
+│   │   ├── socket-client.js    # Socket.io singleton wrapper
+│   │   ├── config.js           # Environment-aware runtime config
+│   │   ├── lobby.js            # Lobby controller
+│   │   └── room.js             # Room controller
 │   └── assets/
-│       ├── model/          # TF.js model (model.json + weights.bin)
+│       ├── model/              # TF.js model (model.json + weights.bin)
 │       └── words/
-│           └── categories.json
+│           └── categories.json # 20 drawable categories
 ├── backend/
-│   ├── server.js           # Express + Socket.io entry point
-│   ├── room-manager.js     # In-memory room state (pure data layer)
+│   ├── server.js               # Express + Socket.io entry point
+│   ├── room-manager.js         # In-memory room state (pure data layer)
 │   └── routes/
-│       └── rooms.js        # REST: GET/POST /api/rooms
+│       └── rooms.js            # REST: GET/POST /api/rooms
 ├── scripts/
-│   ├── train_model.py      # CNN training script (Python / Keras)
-│   └── convert_model.py    # Keras .h5 → TF.js format converter
+│   ├── train_model.py          # CNN training script (Python / Keras)
+│   └── convert_model.py        # Keras .h5 → TF.js format converter
 └── package.json
 ```
 
@@ -99,15 +112,20 @@ quickdraw/
 
 ## Model
 
-- **Architecture**: Custom CNN trained with Keras / TensorFlow
-- **Dataset**: [Google Quick Draw!](https://github.com/googlecreativelab/quickdraw-dataset) `.npy` files
+- **Architecture**: Custom CNN (3 conv blocks + dense layers) trained with Keras / TensorFlow
+- **Dataset**: [Google Quick Draw!](https://github.com/googlecreativelab/quickdraw-dataset) `.npy` bitmap files
 - **Categories**: 20 classes — cat, dog, house, sun, tree, fish, star, car, airplane, umbrella, guitar, clock, flower, bicycle, elephant, penguin, crown, lighthouse, snowflake, cactus
+- **Training samples**: 15,000 per class (300,000 total)
 - **Validation accuracy**: 88.4%
 - **Format**: Keras `.h5` converted to TF.js `LayersModel` via a custom script (see `scripts/convert_model.py`)
 
+### Why a custom converter?
+
+The standard `tensorflowjs_converter` CLI had version incompatibilities with the training environment (Python 3.10 + TensorFlow 2.15). `convert_model.py` manually serializes Keras layer weights into the TF.js binary format, bypassing the CLI entirely.
+
 ### Pixel polarity
 
-The model was trained on white-background / black-stroke images, normalized with `pixel / 255` (no inversion). The canvas pipeline mirrors this exactly.
+Quick Draw `.npy` data uses black-background / white-stroke encoding. The model was trained with `pixel / 255` normalization (no inversion), so the canvas pipeline outputs white-background / black-stroke images to match the training distribution exactly.
 
 ---
 
@@ -127,7 +145,10 @@ submit_score ──────────────────────�
 round_end ←────────────────────── broadcast rankings
 ```
 
-Key design decision: scores are only broadcast **after** the round ends, so players can't see each other's scores mid-round.
+**Key design decisions:**
+- Scores are only broadcast **after** the round ends — players can't see each other's scores mid-round
+- Timer runs server-side to prevent client-side cheating
+- Score is calculated server-side from `topLabel` and `confidence` to prevent arbitrary score injection
 
 ---
 
