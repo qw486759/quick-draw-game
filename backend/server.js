@@ -46,16 +46,20 @@ function readString(value, maxLen = 80) {
   return value.trim().slice(0, maxLen);
 }
 
+function readDrawingDataUrl(value) {
+  if (typeof value !== 'string') return null;
+  if (value.length > 50000) return null;
+  const isPngDataUrl = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(value);
+  return isPngDataUrl ? value : null;
+}
+
 // ---------------------------------------------------------------------------
 // Game constants
 // ---------------------------------------------------------------------------
 
 // Load categories from the single source of truth shared with the frontend.
 // modelCategories order must match the CNN training order exactly.
-const categoriesPath = require("path").join(
-  __dirname, "../frontend/assets/words/categories.json"
-);
-const categoriesData = require(categoriesPath);
+const categoriesData = require("../frontend/assets/words/categories.json");
 const CATEGORIES = categoriesData.modelCategories;
 
 /** Duration of each drawing round in seconds. */
@@ -151,6 +155,17 @@ const io = new Server(server, {
 
 io.on("connection", (socket) => {
   console.log(`[socket] connected: ${socket.id}`);
+
+  // Per-socket rate limiter for submit_score.
+  // Tracks how many times this socket has called submit_score in the
+  // current 1-second window. Resets every second via setInterval.
+  // Max 10 per second is well above the legitimate debounced rate (~1–2/s)
+  // but blocks anyone hammering the event from DevTools.
+  const submitRateLimit = { count: 0 };
+  const submitRateLimitTimer = setInterval(() => { submitRateLimit.count = 0; }, 1000);
+
+  // Clean up the interval when this socket disconnects to prevent memory leaks.
+  socket.on("disconnect", () => clearInterval(submitRateLimitTimer));
 
   // ------------------------------------------------------------------
   // join_room
@@ -360,15 +375,19 @@ io.on("connection", (socket) => {
   // Payload: { roomId: string, topLabel: string, confidence: number, drawing?: string }
   // ------------------------------------------------------------------
   socket.on("submit_score", (payload) => {
+    // Rate limit: max 10 submissions per second per socket.
+    // Legitimate clients debounce at 200ms (~5/s max), so 10 gives headroom
+    // while still blocking DevTools flooding.
+    submitRateLimit.count += 1;
+    if (submitRateLimit.count > 10) return;
+
     if (!isObject(payload)) return;
     const roomId     = readString(payload.roomId, 12).toUpperCase();
     const topLabel   = readString(payload.topLabel, 40);
     const confidence = typeof payload.confidence === 'number'
       ? Math.max(0, Math.min(1, payload.confidence))
       : 0;
-    const drawing    = typeof payload.drawing === 'string'
-      ? payload.drawing.slice(0, 50000)
-      : null;
+    const drawing = readDrawingDataUrl(payload.drawing);
     if (!roomId) return;
 
     const room = roomManager.getRawRoom(roomId);
@@ -649,6 +668,16 @@ function endGame(roomId) {
  * @param {"explicit"|"disconnect"} reason
  */
 function handlePlayerLeave(socket, roomId, reason) {
+  // Capture the player's name BEFORE disconnectPlayer() runs.
+  // In "waiting" state, disconnectPlayer() removes the player from the list,
+  // so result.room.players won't contain them anymore.
+  // In "playing"/"finished" state, the nested lookup in the original code
+  // was always returning undefined because result.room is a publicRoom()
+  // snapshot taken after the mutation.
+  // Capturing here (from the raw room, before any mutation) fixes both cases.
+  const rawRoomBefore     = roomManager.findRoomByPlayer(socket.id);
+  const leavingPlayerName = rawRoomBefore?.players.find((p) => p.id === socket.id)?.name ?? "A player";
+
   const result = roomManager.disconnectPlayer(socket.id);
 
   if (result.deleted) {
@@ -662,39 +691,24 @@ function handlePlayerLeave(socket, roomId, reason) {
 
   socket.leave(rid);
 
-  // During an active game, a disconnect is likely just the player navigating
-  // to game-multi.html (page transition). Don't broadcast a leave event yet —
-  // the player will rejoin with a new socket id in a moment.
-  // We only notify others once the game is NOT playing (lobby disconnect).
   const rawRoom = roomManager.getRawRoom(rid);
   const status  = rawRoom ? rawRoom.status : "waiting";
 
-  // During "playing" or "finished", a disconnect is a page navigation
-  // (game-multi.html ↔ room.html). The player will rejoin momentarily
-  // with a new socket id — so we suppress all broadcast and do NOT
-  // remove them from the connected list.
-  //
-  // Edge case: the rejoin handler runs first (sets connected=true),
-  // then this disconnect fires and would set connected=false again.
-  // Guard: if the player's current socket.id in the room no longer
-  // matches this (old) socket.id, they have already rejoined — skip.
+  // During "playing" or "finished", a disconnect is likely a page navigation
+  // (room.html → game-multi.html). The player will rejoin momentarily with a
+  // new socket id — suppress the broadcast and wait to confirm it's real.
   const isTransitioning = status === "playing" || status === "finished";
 
   if (isTransitioning) {
-    const leavingPlayerName = rawRoom?.players.find(
-      (p) => p.name === result.room.players.find((rp) => rp.id === socket.id)?.name
-    )?.name;
-
-    // Wait 2 seconds before broadcasting — gives the player time to rejoin
-    // after a page navigation (room.html → game-multi.html).
-    // If they haven't rejoined by then, treat it as a real disconnect.
+    // Wait 8 seconds before acting — gives the player time to finish the
+    // page transition and re-emit join_room with their new socket id.
     setTimeout(() => {
       const currentRoom = roomManager.getRawRoom(rid);
       if (!currentRoom) return;
 
       const player = currentRoom.players.find((p) => p.name === leavingPlayerName);
 
-      // If the player already rejoined with a new socket id, ignore
+      // If the player already rejoined (new socket id, still connected), ignore
       if (player && player.id !== socket.id && player.connected) {
         console.log(`[room] ${socket.id} stale disconnect ignored (${leavingPlayerName} already rejoined)`);
         return;
@@ -707,7 +721,6 @@ function handlePlayerLeave(socket, roomId, reason) {
 
       console.log(`[room] ${leavingPlayerName} really disconnected from ${rid} (${connectedCount} remaining)`);
 
-      // If nobody is left, delete the room immediately
       if (connectedCount === 0) {
         roomManager.deleteRoom(rid);
         return;
@@ -722,13 +735,11 @@ function handlePlayerLeave(socket, roomId, reason) {
     return;
   }
 
-  // Normal waiting-room disconnect: broadcast to remaining players
+  // Normal waiting-room disconnect: broadcast updated player list to remaining players
   io.to(rid).emit("room_update", { players: result.room.players, hostId: result.room.hostId });
 
   if (reason === "disconnect") {
-    const playerName =
-      result.room.players.find((p) => p.id === socket.id)?.name ?? "A player";
-    io.to(rid).emit("player_disconnect", { playerName });
+    io.to(rid).emit("player_disconnect", { playerName: leavingPlayerName });
   }
 
   console.log(`[room] ${socket.id} left room ${rid} (${reason})`);

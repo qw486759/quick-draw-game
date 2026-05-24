@@ -175,8 +175,8 @@ async function fetchLeaderboard() {
     const res     = await fetch(`${APP_CONFIG.API_BASE_URL}/api/leaderboard`);
     const entries = await res.json();
     renderLeaderboard(entries);
-  } catch {
-    // Silently fail — leaderboard is non-critical
+  } catch (err) {
+    console.warn('[leaderboard] fetch failed:', err.message);
   }
 }
 

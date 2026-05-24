@@ -284,6 +284,15 @@ function showGameOver(finalRanking, roundHistory) {
 const socket = SocketClient.connect();
 
 socket.on("join_success", ({ room }) => {
+  localScores = {};
+
+  if (room?.players) {
+    room.players.forEach((p) => {
+      localScores[p.name] = p.score || 0;
+    });
+    renderScoreboard();
+  }
+
   console.log(`[game-multi] Room join confirmed.`);
 });
 
