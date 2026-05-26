@@ -1,0 +1,8 @@
+aws_region     = "us-east-1"
+project_name   = "quick-draw-game"
+service_name   = "quick-draw-backend"
+image_tag      = "latest"
+container_port = 3000
+task_cpu       = 256
+task_memory    = 512
+desired_count  = 1

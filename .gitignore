@@ -1,14 +1,14 @@
-# ── Node.js ──────────────────────────────────────────────────
+# ── Node.js ───────────────────────────────────────────────────
 node_modules/
 npm-debug.log*
 yarn-error.log*
 
-# ── Environment variables ─────────────────────────────────────
+# ── Environment variables ────────────────────────────────────────────
 .env
 .env.local
 .env.production
 
-# ── Python (model training) ───────────────────────────────────
+# ── Python (model training) ───────────────────────────────────────────
 venv/
 __pycache__/
 *.pyc
@@ -16,7 +16,7 @@ __pycache__/
 *.npy
 *.h5
 
-# ── macOS ─────────────────────────────────────────────────────
+# ── macOS ────────────────────────────────────────────────────
 .DS_Store
 .AppleDouble
 
@@ -27,8 +27,24 @@ desktop.ini
 # ── VS Code ───────────────────────────────────────────────────
 .vscode/
 
-# ── Dev / test artifacts ──────────────────────────────────────
+# ── Dev / test artifacts ────────────────────────────────────────────
 frontend/test.html
 scripts/data/
 scripts/*.h5
 scripts/*.png
+
+# ── Terraform local state and variables ─────────────────────────────────────
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/*.tfvars
+!**/*.tfvars.example
+
+# Terraform crash logs
+crash.log
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

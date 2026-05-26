@@ -1,0 +1,36 @@
+.git
+.github
+node_modules
+npm-debug.log
+.DS_Store
+
+# Local environment files
+.env
+.env.*
+
+# Python training artifacts / local datasets
+__pycache__
+*.pyc
+.venv
+venv
+
+# Local datasets
+quickdraw_data
+data
+datasets
+*.npy
+
+# Local/generated model training outputs
+*.h5
+*.keras
+checkpoints
+runs
+
+# Documentation not needed in runtime image
+README.md
+docs
+
+# Local editor/system files
+.vscode
+.idea
+Thumbs.db
