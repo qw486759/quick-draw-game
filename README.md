@@ -10,6 +10,8 @@ This repository also includes a production-style AWS ECS Fargate deployment path
 
 ## Demo
 
+**Live demo:** https://quick-draw-game.vercel.app
+
 The application supports:
 
 - Free Mode: draw freely across timed rounds while the browser-side model predicts your sketch.
@@ -39,7 +41,7 @@ docs/assets/aws-ecs-validation.png
 ## Core Features
 
 - Browser-side TensorFlow.js inference
-- Custom CNN model trained from Google Quick Draw-style sketch data
+- Custom CNN model trained  from Google Quick Draw-style sketch data
 - Canvas drawing engine with mouse and touch support
 - Free Mode, Challenge Mode, and Versus Mode
 - REST APIs for multiplayer lobby and room creation
@@ -141,6 +143,7 @@ Vercel frontend → Render backend
 ```
 
 This mode is useful when AWS infrastructure is not currently running.
+If the Render backend is idle, the first multiplayer request may take longer while the service wakes up.
 
 ### AWS ECS Fargate validation
 

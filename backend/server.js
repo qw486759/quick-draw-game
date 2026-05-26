@@ -20,10 +20,45 @@ const roomsRouter = require("./routes/rooms");
 // ---------------------------------------------------------------------------
 // CORS config — shared between REST and Socket.io
 // ---------------------------------------------------------------------------
-const allowedOrigins = [
-  'http://localhost:3000',
-  'https://quick-draw-game.vercel.app',
+// The app supports three deployment modes:
+//
+// 1. Local development:
+//    http://localhost:3000 -> http://localhost:3000
+//
+// 2. Hosted public demo:
+//    https://quick-draw-game.vercel.app -> https://quick-draw-game.onrender.com
+//
+// 3. AWS ECS Fargate:
+//    ALB same-origin frontend/backend, so browser CORS is not required.
+//
+// Vercel preview deployments may use branch-specific *.vercel.app hostnames.
+// Allow the production Vercel domain and Vercel preview domains while keeping
+// arbitrary origins blocked.
+const allowedOriginPatterns = [
+  /^http:\/\/localhost:3000$/,
+  /^http:\/\/127\.0\.0\.1:3000$/,
+  /^https:\/\/quick-draw-game\.vercel\.app$/,
+  /^https:\/\/quick-draw-game-[a-z0-9-]+\.vercel\.app$/,
 ];
+
+function isAllowedOrigin(origin) {
+  // Non-browser clients, same-origin requests, health checks, and curl-style
+  // calls often do not include an Origin header.
+  if (!origin) return true;
+
+  return allowedOriginPatterns.some((pattern) => pattern.test(origin));
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked origin: ${origin}`));
+  },
+  methods: ['GET', 'POST'],
+};
 
 // ---------------------------------------------------------------------------
 // Payload validation helpers
@@ -114,10 +149,7 @@ const server = http.createServer(app);
 
 // Parse JSON bodies for REST endpoints
 const cors = require('cors');
-app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST'],
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve the entire frontend/ folder as static files.
@@ -147,10 +179,7 @@ app.get("*", (req, res) => {
 // ---------------------------------------------------------------------------
 
 const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-  },
+  cors: corsOptions,
 });
 
 io.on("connection", (socket) => {

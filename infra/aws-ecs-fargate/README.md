@@ -2,7 +2,7 @@
 
 This directory contains the Terraform configuration for deploying Quick Draw as a containerized AWS ECS Fargate application.
 
-The deployment turns the original browser-based TensorFlow.js drawing game into a reproducible cloud-deployable application while preserving the original application architecture:
+The deployment turns the browser-based TensorFlow.js drawing game into a reproducible cloud-deployable application while preserving the original application architecture:
 
 - TensorFlow.js inference runs in the browser.
 - Node.js / Express serves the frontend and REST APIs.
@@ -34,15 +34,38 @@ Static frontend + TensorFlow.js model
 AWS resources provisioned by Terraform:
 
 ```text
-Amazon ECR                Docker image registry
-Amazon ECS Cluster        Container orchestration control plane
-AWS Fargate               Serverless container runtime
-Application Load Balancer Public HTTP/WebSocket entry point
-Target Group              Health checks and task routing
-Security Groups           ALB and ECS network boundaries
-IAM Execution Role        Allows ECS to pull ECR images and write logs
-CloudWatch Logs           Container runtime logs
+Amazon ECR                 Docker image registry
+Amazon ECS Cluster         Container orchestration control plane
+AWS Fargate                Serverless container runtime
+Application Load Balancer  Public HTTP/WebSocket entry point
+Target Group               Health checks and task routing
+Security Groups            ALB and ECS network boundaries
+IAM Execution Role         Allows ECS to pull ECR images and write logs
+CloudWatch Logs            Container runtime logs
 ```
+
+---
+
+## Deployment Modes and Runtime Configuration
+
+The frontend uses runtime configuration in `frontend/js/config.js` instead of build-time environment variables.
+
+The project supports multiple deployment modes:
+
+```text
+Local development        → localhost frontend + localhost backend
+Hosted public demo       → Vercel frontend + Render backend
+AWS ECS Fargate demo     → ALB same-origin frontend/backend
+```
+
+For AWS ECS Fargate, the frontend and backend are served from the same Application Load Balancer origin, so REST API calls and Socket.io connections resolve to the ALB DNS name:
+
+```text
+http://<alb-dns-name>/api/rooms
+http://<alb-dns-name>/socket.io/...
+```
+
+This keeps the AWS deployment self-contained while allowing the public Vercel/Render demo to remain available when AWS infrastructure is not running.
 
 ---
 
@@ -95,35 +118,6 @@ The ALB security group allows public HTTP traffic on port 80.
 The ECS service security group only allows inbound traffic from the ALB security group on the container port.
 
 This keeps the public entry point separate from the container runtime.
-
----
-
-### Same-origin frontend configuration
-
-The frontend uses runtime same-origin configuration:
-
-```js
-const origin = window.location.origin;
-
-window.APP_CONFIG = {
-  SOCKET_URL: origin,
-  API_BASE_URL: origin,
-};
-```
-
-This allows the same frontend code to work across local development and AWS ALB deployment without hardcoded backend URLs.
-
-Examples:
-
-```text
-Local:
-http://localhost:3000/api/rooms
-
-AWS ECS:
-http://<alb-dns-name>/api/rooms
-```
-
-This avoids CORS issues and makes the frontend portable across deployment environments.
 
 ---
 
@@ -202,6 +196,13 @@ Initialize Terraform:
 terraform init
 ```
 
+Check formatting and configuration validity:
+
+```powershell
+terraform fmt -check
+terraform validate
+```
+
 Review the plan:
 
 ```powershell
@@ -246,7 +247,9 @@ docker build -t quick-draw-game:latest .
 Set the ECR repository URL from Terraform output:
 
 ```powershell
-$ECR_URL = "<account-id>.dkr.ecr.us-east-1.amazonaws.com/quick-draw-game"
+cd infra/aws-ecs-fargate
+$ECR_URL = terraform output -raw ecr_repository_url
+cd ../..
 ```
 
 Tag the image:
@@ -258,7 +261,8 @@ docker tag quick-draw-game:latest ${ECR_URL}:latest
 Authenticate Docker to ECR:
 
 ```powershell
-cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com"
+$ECR_REGISTRY = $ECR_URL.Split("/")[0]
+cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY"
 ```
 
 Push the image:
@@ -294,10 +298,10 @@ aws ecs describe-services `
   --cluster quick-draw-game-cluster `
   --services quick-draw-backend `
   --region us-east-1 `
-  --query "services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount,events:events[0:3]}"
+  --query "services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount,events:events[0:5]}"
 ```
 
-Expected:
+Expected steady state:
 
 ```text
 status: ACTIVE
@@ -305,6 +309,8 @@ desired: 1
 running: 1
 pending: 0
 ```
+
+During rolling deployment, `running` may temporarily be `2` while the old task drains and the new task becomes healthy.
 
 ### Target group health
 
@@ -356,6 +362,7 @@ Validate:
 - Multiplayer room creation works.
 - Two browser sessions can join the same room.
 - Socket.io multiplayer synchronization works.
+- DevTools Console shows `window.APP_CONFIG` pointing to the ALB origin.
 
 ---
 
@@ -415,15 +422,21 @@ Check:
 
 ### Frontend calls the wrong backend
 
-The frontend should use same-origin API and Socket.io URLs.
+Expected behavior by mode:
 
-Correct:
-
-```js
-window.location.origin
+```text
+localhost             → http://localhost:3000
+quick-draw-game.vercel.app → https://quick-draw-game.onrender.com
+AWS ALB DNS           → same ALB origin
 ```
 
-Avoid hardcoded backend URLs in frontend JavaScript.
+In the browser console, inspect:
+
+```js
+window.APP_CONFIG
+```
+
+For AWS, both `SOCKET_URL` and `API_BASE_URL` should point to the ALB origin.
 
 ---
 
@@ -466,6 +479,7 @@ terraform apply
 The deployment was validated with:
 
 - Terraform apply completed successfully.
+- Docker image pushed to Amazon ECR.
 - ECS service reached steady state.
 - Target group reported healthy targets.
 - `/api/health` returned HTTP 200 through the ALB.
@@ -475,6 +489,7 @@ The deployment was validated with:
 - Versus Mode room creation worked.
 - Two browser sessions joined the same multiplayer room.
 - Socket.io multiplayer flow worked through the ALB.
+- Terraform destroy completed successfully.
 
 Screenshots are stored under:
 

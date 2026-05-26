@@ -42,6 +42,21 @@ router.post("/", (req, res) => {
     return res.status(400).json({ error: "hostName is required." });
   }
 
+  const trimmedRoomName = roomName.trim();
+  const trimmedHostName = hostName.trim();
+
+  if (trimmedRoomName.length > 40) {
+    return res.status(400).json({
+      error: "roomName must be 40 characters or fewer.",
+    });
+  }
+
+  if (trimmedHostName.length > 30) {
+    return res.status(400).json({
+      error: "hostName must be 30 characters or fewer.",
+    });
+  }
+
   const max = maxPlayers === undefined || maxPlayers === null || maxPlayers === ""
     ? 6
     : Number(maxPlayers);
@@ -57,10 +72,10 @@ router.post("/", (req, res) => {
   const hostToken = randomUUID();
 
   const room = roomManager.createRoom(
-    roomName.trim(),
+    trimmedRoomName,
     max,
     "pending",
-    hostName.trim(),
+    trimmedHostName,
     hostToken
   );
 
