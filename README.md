@@ -1,26 +1,152 @@
-# Quick Draw — AWS ECS Fargate Deployment
+# Quick Draw
 
-This directory contains the Terraform configuration for deploying Quick Draw as a containerized AWS ECS Fargate application.
+A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch and a custom CNN model predicts the category in real time. The project includes single-player modes, challenge gameplay, and real-time multiplayer synchronization through Socket.io.
 
-The deployment turns the original browser-based TensorFlow.js drawing game into a reproducible cloud-deployable application while preserving the original application architecture:
-
-- TensorFlow.js inference runs in the browser.
-- Node.js / Express serves the frontend and REST APIs.
-- Socket.io handles real-time multiplayer synchronization.
-- Multiplayer room state remains in memory.
-- AWS ECS Fargate runs the application container.
-- Application Load Balancer provides the public HTTP/WebSocket entry point.
+This repository also includes a production-style AWS ECS Fargate deployment path using Docker, Amazon ECR, Application Load Balancer, CloudWatch Logs, and Terraform.
 
 ---
 
-## Architecture
+## Demo
+
+The application supports:
+
+- Free Mode: draw freely across timed rounds while the browser-side model predicts your sketch.
+- Challenge Mode: pass confidence thresholds under progressively tighter time limits.
+- Versus Mode: create multiplayer rooms, synchronize players with Socket.io, and compare AI-scored drawings after each round.
+
+Demo screenshots are stored under:
+
+```text
+docs/assets/
+```
+
+Example validation screenshots include:
+
+```text
+docs/assets/homepage-alb.png
+docs/assets/free-mode-inference.png
+docs/assets/challenge-mode-ongoing.png
+docs/assets/versus-lobby.png
+docs/assets/versus-room.png
+docs/assets/versus-multiplayer-sync.png
+docs/assets/aws-ecs-validation.png
+```
+
+---
+
+## Core Features
+
+- Browser-side TensorFlow.js inference
+- Custom CNN model trained from Google Quick Draw-style sketch data
+- Canvas drawing engine with mouse and touch support
+- Free Mode, Challenge Mode, and Versus Mode
+- REST APIs for multiplayer lobby and room creation
+- Socket.io-based real-time multiplayer synchronization
+- Dockerized Node.js / Express application
+- Terraform-based AWS ECS Fargate deployment
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vanilla HTML / CSS / JavaScript |
+| ML Inference | TensorFlow.js 4.x |
+| Drawing Engine | HTML Canvas |
+| Backend | Node.js + Express |
+| Real-time Sync | Socket.io 4.x |
+| Model | Custom CNN |
+| Containerization | Docker |
+| Cloud Runtime | AWS ECS Fargate |
+| Image Registry | Amazon ECR |
+| Public Entry Point | Application Load Balancer |
+| Logs | CloudWatch Logs |
+| Infrastructure | Terraform |
+
+The server does not perform ML inference. TensorFlow.js inference runs entirely in the browser, while the backend serves static assets, REST APIs, and Socket.io multiplayer events.
+
+---
+
+## Application Architecture
+
+```text
+Browser
+  ├── Canvas drawing engine
+  ├── TensorFlow.js model inference
+  ├── REST API client
+  └── Socket.io client
+        ↓
+Node.js / Express / Socket.io backend
+  ├── Static frontend serving
+  ├── REST APIs under /api
+  ├── Multiplayer room management
+  ├── Server-side round coordination
+  └── In-memory room and score state
+```
+
+Key design point:
+
+```text
+The ML model runs in the browser.
+The backend coordinates multiplayer state.
+```
+
+This keeps inference latency low and avoids backend GPU infrastructure cost.
+
+---
+
+## Runtime Configuration
+
+The frontend uses runtime same-origin configuration in:
+
+```text
+frontend/js/config.js
+```
+
+Current configuration:
+
+```js
+(function () {
+  const origin = window.location.origin;
+
+  window.APP_CONFIG = {
+    SOCKET_URL: origin,
+    API_BASE_URL: origin,
+  };
+})();
+```
+
+This means REST calls and Socket.io connections automatically target the same origin that served the frontend.
+
+Examples:
+
+```text
+Local development:
+http://localhost:3000/api/rooms
+
+AWS ECS Fargate behind ALB:
+http://<alb-dns-name>/api/rooms
+```
+
+This avoids hardcoded backend URLs and prevents CORS issues when the app is deployed behind different hosts.
+
+---
+
+## AWS ECS Fargate Deployment
+
+The AWS deployment configuration is located under:
+
+```text
+infra/aws-ecs-fargate/
+```
+
+The deployment packages the full Node.js / Express / Socket.io application and static TensorFlow.js frontend into a Docker image, pushes the image to Amazon ECR, and runs it as an ECS Fargate service behind an Application Load Balancer.
 
 ```text
 Internet
   ↓
 Application Load Balancer
-  ↓
-Target Group
   ↓
 ECS Service
   ↓
@@ -31,32 +157,33 @@ Node.js / Express / Socket.io container
 Static frontend + TensorFlow.js model
 ```
 
-AWS resources provisioned by Terraform:
+AWS resources provisioned by Terraform include:
+
+- Amazon ECR repository
+- ECS cluster
+- ECS task definition
+- ECS Fargate service
+- Application Load Balancer
+- Target group and listener
+- Security groups
+- IAM task execution role
+- CloudWatch log group
+
+Full deployment instructions are documented in:
 
 ```text
-Amazon ECR                Docker image registry
-Amazon ECS Cluster        Container orchestration control plane
-AWS Fargate               Serverless container runtime
-Application Load Balancer Public HTTP/WebSocket entry point
-Target Group              Health checks and task routing
-Security Groups           ALB and ECS network boundaries
-IAM Execution Role        Allows ECS to pull ECR images and write logs
-CloudWatch Logs           Container runtime logs
+infra/aws-ecs-fargate/README.md
 ```
 
 ---
 
-## Design Decisions
+## Deployment Design Decisions
 
 ### Browser-side ML inference
 
-The TensorFlow.js model is loaded by the frontend and executed directly in the browser.
+The TensorFlow.js model remains browser-side. ECS Fargate hosts the web application and multiplayer backend, but does not perform GPU inference or Python model serving.
 
-The backend does not perform model inference, GPU computation, or Python model serving. ECS is used to host the web application and multiplayer backend, not to serve ML inference.
-
-This keeps the backend lightweight and avoids unnecessary backend GPU infrastructure cost.
-
----
+This keeps the cloud runtime lightweight and cost-aware.
 
 ### Single ECS task
 
@@ -66,418 +193,196 @@ The ECS service intentionally uses:
 desired_count = 1
 ```
 
-The multiplayer room manager stores active rooms, players, scores, and round state in process memory. Running multiple ECS tasks without an external state layer could split players across different containers.
+The multiplayer room manager stores room state in memory. Running multiple ECS tasks without shared state could split players across different containers.
 
-A horizontally scalable production version would require one or more of the following:
+A horizontally scalable version would require Redis-backed room state, Socket.io Redis adapter, sticky sessions, or another external state synchronization mechanism.
 
-- Redis-backed room state
-- Socket.io Redis adapter
-- External session persistence
-- Sticky sessions
-- Pub/sub event propagation
+### ALB entry point
 
-For this project, a single Fargate task is an intentional trade-off that preserves application correctness while demonstrating managed container deployment.
-
----
-
-### ALB as the public entry point
-
-The ECS task is not exposed directly to the internet.
-
-Traffic flows through the Application Load Balancer:
+The container is not exposed directly to the internet. Public traffic enters through the Application Load Balancer and is forwarded to the ECS task on port 3000.
 
 ```text
-Browser → ALB port 80 → ECS task port 3000
+Browser → ALB:80 → ECS task:3000
 ```
 
-The ALB security group allows public HTTP traffic on port 80.
+### Cost-aware demo lifecycle
 
-The ECS service security group only allows inbound traffic from the ALB security group on the container port.
-
-This keeps the public entry point separate from the container runtime.
-
----
-
-### Same-origin frontend configuration
-
-The frontend uses runtime same-origin configuration:
-
-```js
-const origin = window.location.origin;
-
-window.APP_CONFIG = {
-  SOCKET_URL: origin,
-  API_BASE_URL: origin,
-};
-```
-
-This allows the same frontend code to work across local development and AWS ALB deployment without hardcoded backend URLs.
-
-Examples:
-
-```text
-Local:
-http://localhost:3000/api/rooms
-
-AWS ECS:
-http://<alb-dns-name>/api/rooms
-```
-
-This avoids CORS issues and makes the frontend portable across deployment environments.
-
----
-
-### Default VPC and public subnets
-
-This deployment uses the AWS default VPC and public subnets.
-
-That choice is intentional for a portfolio/demo deployment:
-
-- no NAT Gateway cost
-- simpler Terraform configuration
-- faster reproducibility
-- easier validation and teardown
-
-The ECS task is assigned a public IP so it can pull images from ECR and write logs to CloudWatch without requiring NAT Gateway or VPC endpoints.
-
-Inbound access is still restricted by security groups. The task only accepts traffic from the ALB security group.
-
-A production version would normally use private subnets, NAT Gateway or VPC endpoints, custom VPC boundaries, HTTPS, and more restrictive networking.
-
----
-
-## Prerequisites
-
-Install and configure:
-
-- AWS CLI
-- Terraform
-- Docker
-- An AWS account with permissions for ECR, ECS, IAM, ALB, EC2 networking, and CloudWatch Logs
-
-Authenticate AWS CLI:
-
-```powershell
-aws sts get-caller-identity
-```
-
----
-
-## Terraform Variables
-
-Copy the example variables file:
-
-```powershell
-Copy-Item terraform.tfvars.example terraform.tfvars
-```
-
-Example values:
-
-```hcl
-aws_region     = "us-east-1"
-project_name   = "quick-draw-game"
-service_name   = "quick-draw-backend"
-image_tag      = "latest"
-container_port = 3000
-task_cpu       = 256
-task_memory    = 512
-desired_count  = 1
-```
-
-Do not commit `terraform.tfvars`.
-
----
-
-## Deployment Workflow
-
-Run Terraform from this directory:
-
-```powershell
-cd infra/aws-ecs-fargate
-```
-
-Initialize Terraform:
-
-```powershell
-terraform init
-```
-
-Review the plan:
-
-```powershell
-terraform plan
-```
-
-Create the infrastructure:
-
-```powershell
-terraform apply
-```
-
-Expected resource categories:
-
-- ECR repository
-- CloudWatch log group
-- ECS cluster
-- ALB and target group
-- Security groups
-- IAM execution role
-- ECS task definition
-- ECS service
-
-After apply, Terraform outputs:
-
-```text
-ecr_repository_url
-alb_dns_name
-service_url
-```
-
----
-
-## Build and Push Docker Image
-
-From the repository root:
-
-```powershell
-docker build -t quick-draw-game:latest .
-```
-
-Set the ECR repository URL from Terraform output:
-
-```powershell
-$ECR_URL = "<account-id>.dkr.ecr.us-east-1.amazonaws.com/quick-draw-game"
-```
-
-Tag the image:
-
-```powershell
-docker tag quick-draw-game:latest ${ECR_URL}:latest
-```
-
-Authenticate Docker to ECR:
-
-```powershell
-cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com"
-```
-
-Push the image:
-
-```powershell
-docker push ${ECR_URL}:latest
-```
-
----
-
-## Force ECS Deployment
-
-If the ECS service was created before the image existed, or if the `latest` tag was rebuilt, force a new deployment:
-
-```powershell
-aws ecs update-service `
-  --cluster quick-draw-game-cluster `
-  --service quick-draw-backend `
-  --force-new-deployment `
-  --region us-east-1
-```
-
-This instructs ECS to start a new task using the current task definition and pull the current image from ECR.
-
----
-
-## Validation
-
-### ECS service status
-
-```powershell
-aws ecs describe-services `
-  --cluster quick-draw-game-cluster `
-  --services quick-draw-backend `
-  --region us-east-1 `
-  --query "services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount,events:events[0:3]}"
-```
-
-Expected:
-
-```text
-status: ACTIVE
-desired: 1
-running: 1
-pending: 0
-```
-
-### Target group health
-
-```powershell
-$TG_ARN = aws elbv2 describe-target-groups `
-  --names quick-draw-game-tg `
-  --region us-east-1 `
-  --query "TargetGroups[0].TargetGroupArn" `
-  --output text
-
-aws elbv2 describe-target-health `
-  --target-group-arn $TG_ARN `
-  --region us-east-1 `
-  --query "TargetHealthDescriptions[*].{target:Target.Id,port:Target.Port,state:TargetHealth.State,reason:TargetHealth.Reason,description:TargetHealth.Description}"
-```
-
-Expected:
-
-```text
-state: healthy
-```
-
-### Public health check
-
-```powershell
-$URL = terraform output -raw service_url
-(Invoke-WebRequest "$URL/api/health").StatusCode
-```
-
-Expected:
-
-```text
-200
-```
-
-### Browser validation
-
-Open the service URL:
-
-```powershell
-Start-Process $URL
-```
-
-Validate:
-
-- Homepage loads through the ALB.
-- Free Mode works.
-- Challenge Mode works.
-- Multiplayer room creation works.
-- Two browser sessions can join the same room.
-- Socket.io multiplayer synchronization works.
-
----
-
-## Runtime Logs
-
-Container stdout and stderr are sent to CloudWatch Logs:
-
-```powershell
-aws logs tail "/ecs/quick-draw-game" `
-  --region us-east-1 `
-  --since 10m
-```
-
-This is useful for debugging application startup, REST requests, Socket.io events, and container runtime errors.
-
----
-
-## Troubleshooting
-
-### ECS service cannot pull image
-
-Error:
-
-```text
-CannotPullContainerError
-```
-
-Common cause:
-
-```text
-ECR image tag does not exist yet.
-```
-
-Fix:
-
-```powershell
-docker build -t quick-draw-game:latest .
-docker tag quick-draw-game:latest ${ECR_URL}:latest
-docker push ${ECR_URL}:latest
-
-aws ecs update-service `
-  --cluster quick-draw-game-cluster `
-  --service quick-draw-backend `
-  --force-new-deployment `
-  --region us-east-1
-```
-
-### ALB target is unhealthy
-
-Check:
-
-- container listens on port 3000
-- Express app exposes `/api/health`
-- target group health check path is `/api/health`
-- ECS security group allows inbound traffic from the ALB security group
-- task has reached running state
-
-### Frontend calls the wrong backend
-
-The frontend should use same-origin API and Socket.io URLs.
-
-Correct:
-
-```js
-window.location.origin
-```
-
-Avoid hardcoded backend URLs in frontend JavaScript.
-
----
-
-## Cost Control
-
-This deployment is intended for short-lived validation and demos.
-
-Resources that may incur cost include:
-
-- Application Load Balancer
-- Fargate task runtime
-- ECR image storage
-- CloudWatch Logs
-
-After validation:
-
-```powershell
-terraform destroy
-```
-
-Expected:
-
-```text
-Destroy complete
-```
-
-The normal workflow is:
+This deployment is intended for short-lived validation and portfolio demos:
 
 ```text
 terraform apply
-→ build and push image
-→ validate ECS / ALB / app behavior
+→ build and push Docker image
+→ validate ECS / ALB / application behavior
 → terraform destroy
 ```
 
+This avoids leaving ALB and Fargate resources running unnecessarily.
+
 ---
 
-## Validation Evidence
+## Validation Summary
 
-The deployment was validated with:
+The ECS Fargate deployment was validated with:
 
-- Terraform apply completed successfully.
-- ECS service reached steady state.
-- Target group reported healthy targets.
-- `/api/health` returned HTTP 200 through the ALB.
-- Homepage loaded through the ALB DNS name.
-- Free Mode inference worked.
-- Challenge Mode inference worked.
-- Versus Mode room creation worked.
-- Two browser sessions joined the same multiplayer room.
-- Socket.io multiplayer flow worked through the ALB.
+- Terraform apply completed successfully
+- Docker image pushed to Amazon ECR
+- ECS service reached steady state
+- Target group reported healthy targets
+- `/api/health` returned HTTP 200 through the ALB
+- Homepage loaded through the ALB DNS name
+- Free Mode worked
+- Challenge Mode worked
+- Versus Mode room creation worked
+- Two browser sessions joined the same multiplayer room
+- Socket.io multiplayer synchronization worked through the ALB
+- Terraform destroy completed successfully after validation
 
-Screenshots are stored under:
+Validation screenshots are stored under:
 
 ```text
 docs/assets/
 ```
+
+---
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm
+
+### Install dependencies
+
+```bash
+npm install
+```
+
+### Start the development server
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## Docker
+
+Build the application image:
+
+```bash
+docker build -t quick-draw-game:latest .
+```
+
+Run locally:
+
+```bash
+docker run --rm -p 3000:3000 quick-draw-game:latest
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+---
+
+## Project Structure
+
+```text
+quickdraw/
+├── backend/
+│   ├── server.js
+│   ├── room-manager.js
+│   └── routes/
+├── frontend/
+│   ├── index.html
+│   ├── game.html
+│   ├── challenge.html
+│   ├── lobby.html
+│   ├── room.html
+│   ├── game-multi.html
+│   ├── css/
+│   ├── js/
+│   └── assets/
+├── infra/
+│   └── aws-ecs-fargate/
+│       ├── main.tf
+│       ├── variables.tf
+│       ├── outputs.tf
+│       ├── terraform.tfvars.example
+│       └── README.md
+├── docs/
+│   └── assets/
+├── scripts/
+├── Dockerfile
+├── .dockerignore
+├── package.json
+└── README.md
+```
+
+---
+
+## Model
+
+- Custom CNN trained with Python / TensorFlow
+- Converted to TensorFlow.js LayersModel
+- Served as static frontend assets
+- Loaded and executed directly in the browser
+
+The server is not involved in prediction. The browser owns the inference loop.
+
+---
+
+## Multiplayer Architecture
+
+```text
+Browser A                    Backend                    Browser B
+─────────                    ───────                    ─────────
+Join room  ────────────────→ room manager ←──────────── Join room
+Draw
+Run TF.js inference
+Submit score ─────────────→ score state
+                              ↓
+                         round timer
+                              ↓
+Round result ←──────────── broadcast ───────────────→ Round result
+```
+
+Room state is currently process-local and in memory, which is why the ECS deployment intentionally runs one task.
+
+---
+
+## Interview Framing
+
+This project demonstrates two layers:
+
+1. Application layer:
+   - browser-side ML inference
+   - Canvas drawing
+   - real-time multiplayer
+   - REST APIs and Socket.io synchronization
+
+2. Cloud deployment layer:
+   - Docker containerization
+   - ECR image publishing
+   - ECS Fargate managed runtime
+   - ALB public routing and health checks
+   - CloudWatch logging
+   - Terraform Infrastructure-as-Code
+   - cost-aware teardown workflow
+
+The ECS Fargate enhancement turns the original local AI drawing game into a reproducible cloud-deployable application without changing the core browser-side ML architecture.
+
+---
+
+## License
+
+MIT
