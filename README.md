@@ -100,38 +100,57 @@ This keeps inference latency low and avoids backend GPU infrastructure cost.
 
 ## Runtime Configuration
 
-The frontend uses runtime same-origin configuration in:
+The frontend uses runtime configuration in:
 
 ```text
 frontend/js/config.js
 ```
 
-Current configuration:
+The project supports three deployment modes without a frontend build step:
+
+| Mode | Frontend Origin | Backend Origin | Use Case |
+|---|---|---|---|
+| Local development | `http://localhost:3000` | `http://localhost:3000` | Development and debugging |
+| Hosted public demo | Vercel | Render | Always-available public demo |
+| AWS ECS Fargate | ALB DNS | Same ALB origin | Portfolio cloud deployment demo |
+
+The frontend chooses the backend origin at runtime:
 
 ```js
-(function () {
-  const origin = window.location.origin;
-
-  window.APP_CONFIG = {
-    SOCKET_URL: origin,
-    API_BASE_URL: origin,
-  };
-})();
+const backendOrigin = isLocalhost
+  ? "http://localhost:3000"
+  : isVercel
+    ? HOSTED_BACKEND_URL
+    : origin;
 ```
 
-This means REST calls and Socket.io connections automatically target the same origin that served the frontend.
+This keeps the public hosted demo available while still allowing the same codebase to run behind an AWS Application Load Balancer during ECS Fargate validation.
 
-Examples:
+---
+
+## Deployment Modes
+
+This project intentionally supports two deployment purposes:
+
+### Public live demo
+
+The public demo can run with a hosted frontend and backend:
 
 ```text
-Local development:
-http://localhost:3000/api/rooms
-
-AWS ECS Fargate behind ALB:
-http://<alb-dns-name>/api/rooms
+Vercel frontend → Render backend
 ```
 
-This avoids hardcoded backend URLs and prevents CORS issues when the app is deployed behind different hosts.
+This mode is useful when AWS infrastructure is not currently running.
+
+### AWS ECS Fargate validation
+
+The AWS deployment is intended for infrastructure demonstration and short-lived validation:
+
+```text
+ALB → ECS Fargate task → Node.js / Express / Socket.io container
+```
+
+This mode is provisioned with Terraform and destroyed after validation to control cost.
 
 ---
 
