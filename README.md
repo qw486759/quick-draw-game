@@ -4,6 +4,8 @@ A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch and a cu
 
 This repository also includes a production-style AWS ECS Fargate deployment path using Docker, Amazon ECR, Application Load Balancer, CloudWatch Logs, and Terraform.
 
+![Quick Draw homepage running behind AWS ALB](docs/assets/homepage-alb.png)
+
 ---
 
 ## Demo
