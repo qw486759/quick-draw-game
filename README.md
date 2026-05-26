@@ -1,225 +1,483 @@
-# Quick Draw
+# Quick Draw — AWS ECS Fargate Deployment
 
-A browser-based AI drawing game powered by TensorFlow.js. Draw a sketch — a CNN model watches every stroke and tries to name it in real time. Supports single-player modes and multiplayer via WebSocket.
+This directory contains the Terraform configuration for deploying Quick Draw as a containerized AWS ECS Fargate application.
 
-**[▶ Play Live Demo](https://quick-draw-game.vercel.app)**
+The deployment turns the original browser-based TensorFlow.js drawing game into a reproducible cloud-deployable application while preserving the original application architecture:
 
-<img width="1919" height="920" alt="image" src="https://github.com/user-attachments/assets/0a43e73b-7bc7-4cad-9164-d33d25d6ba80" />
-
----
-
-## Features
-
-- **Free Mode** — 6 rounds, 20 seconds each. Let the AI guess your drawing.
-- **Challenge Mode** — Hit the confidence threshold to pass. Clock gets tighter every round.
-- **Versus Mode** — 2–6 players, same prompt, AI scores everyone. Scores hidden until time's up.
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | Vanilla HTML / CSS / JavaScript |
-| ML Inference | TensorFlow.js 4.x (runs entirely in-browser) |
-| Real-time | Socket.io 4.x |
-| Backend | Node.js + Express |
-| Model | Custom CNN trained on Google Quick Draw! dataset |
-
-> The server never does ML inference — all AI runs client-side, avoiding server round-trip latency.
+- TensorFlow.js inference runs in the browser.
+- Node.js / Express serves the frontend and REST APIs.
+- Socket.io handles real-time multiplayer synchronization.
+- Multiplayer room state remains in memory.
+- AWS ECS Fargate runs the application container.
+- Application Load Balancer provides the public HTTP/WebSocket entry point.
 
 ---
 
-## Live Demo
+## Architecture
 
-| Service | URL |
-|---|---|
-| Frontend (Vercel) | https://quick-draw-game.vercel.app |
-| Backend (Render) | https://quick-draw-game.onrender.com |
-
-> Note: The backend runs on Render's free tier and may take ~50 seconds to wake up after inactivity. If Versus Mode initially shows a loading message, the backend is waking up — please wait a moment and refresh.
-
-### Runtime configuration
-
-Because this project intentionally uses Vanilla JS without a build step, frontend runtime configuration is stored in `frontend/js/config.js`. The backend URL is detected at runtime based on `window.location.hostname` — no bundler or environment variable tooling required.
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm
-
-### Installation
-
-```bash
-# Clone the repo
-git clone https://github.com/qw486759/quick-draw-game.git
-cd quick-draw-game
-
-# Install dependencies
-npm install
-
-# Start the dev server
-npm run dev
+```text
+Internet
+  ↓
+Application Load Balancer
+  ↓
+Target Group
+  ↓
+ECS Service
+  ↓
+Fargate Task
+  ↓
+Node.js / Express / Socket.io container
+  ↓
+Static frontend + TensorFlow.js model
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+AWS resources provisioned by Terraform:
 
----
-
-## Project Structure
-
-```
-quickdraw/
-├── frontend/
-│   ├── index.html              # Main menu
-│   ├── game.html               # Free mode
-│   ├── challenge.html          # Challenge mode
-│   ├── lobby.html              # Multiplayer lobby
-│   ├── room.html               # Room waiting screen
-│   ├── game-multi.html         # Multiplayer game
-│   ├── css/
-│   │   ├── reset.css
-│   │   ├── room-game.css       # Shared design tokens + components
-│   │   ├── game.css            # Free mode + Challenge mode styles
-│   │   ├── game-multi.css      # Multiplayer game styles
-│   │   ├── lobby.css           # Lobby page styles
-│   │   └── index.css           # Main menu styles
-│   ├── js/
-│   │   ├── canvas.js           # Mouse & touch drawing, tensor export
-│   │   ├── model.js            # TF.js model loading + inference
-│   │   ├── scoring.js          # Score calculation (free mode + challenge)
-│   │   ├── game-single.js      # Free mode controller
-│   │   ├── game-challenge.js   # Challenge mode controller
-│   │   ├── game-multi.js       # Multiplayer game controller
-│   │   ├── socket-client.js    # Socket.io singleton wrapper
-│   │   ├── config.js           # Environment-aware runtime config
-│   │   ├── lobby.js            # Lobby controller
-│   │   └── room.js             # Room controller
-│   └── assets/
-│       ├── model/              # TF.js model (model.json + weights.bin)
-│       └── words/
-│           └── categories.json # 20 drawable categories
-├── backend/
-│   ├── server.js               # Express + Socket.io entry point
-│   ├── room-manager.js         # In-memory room state (pure data layer)
-│   └── routes/
-│       └── rooms.js            # REST: GET/POST /api/rooms
-├── scripts/
-│   ├── train_model.py          # CNN training script (Python / Keras)
-│   └── convert_model.py        # Keras .h5 → TF.js format converter
-└── package.json
+```text
+Amazon ECR                Docker image registry
+Amazon ECS Cluster        Container orchestration control plane
+AWS Fargate               Serverless container runtime
+Application Load Balancer Public HTTP/WebSocket entry point
+Target Group              Health checks and task routing
+Security Groups           ALB and ECS network boundaries
+IAM Execution Role        Allows ECS to pull ECR images and write logs
+CloudWatch Logs           Container runtime logs
 ```
 
 ---
 
-## Model
+## Design Decisions
 
-- **Architecture**: Custom CNN with 3 convolutional blocks and dense classifier layers
-- **Dataset**: [Google Quick Draw!](https://github.com/googlecreativelab/quickdraw-dataset) `.npy` bitmap files
-- **Categories**: 20 classes — cat, dog, house, sun, tree, fish, star, car, airplane, umbrella, guitar, clock, flower, bicycle, elephant, penguin, crown, lighthouse, snowflake, cactus
-- **Training samples**: 15,000 per class, 300,000 total
-- **Training split**: 80% train / 20% validation
-- **Validation accuracy**: 88.4% overall validation accuracy on the 20-class dataset
-- **Format**: Keras `.h5` converted to TensorFlow.js `LayersModel` format (`model.json` + `weights.bin`)
+### Browser-side ML inference
 
-### Training pipeline
+The TensorFlow.js model is loaded by the frontend and executed directly in the browser.
 
-The model is trained offline using Python and is not part of the Node.js runtime:
+The backend does not perform model inference, GPU computation, or Python model serving. ECS is used to host the web application and multiplayer backend, not to serve ML inference.
 
-```
-Python 3.10 + TensorFlow 2.15 + Keras
-        ↓
-scripts/train_model.py
-  - loads Quick Draw .npy bitmap files
-  - samples 15,000 drawings per class
-  - preprocesses each 28x28 bitmap into grayscale tensor format
-  - trains the CNN
-  - saves a Keras .h5 model
-        ↓
-scripts/convert_model.py
-  - converts the Keras .h5 model into TF.js LayersModel artifacts
-        ↓
-frontend/assets/model/
-  - model.json
-  - weights.bin
-```
-
-The Node.js backend only serves the frontend and handles multiplayer room state, server-side timers, and score finalization. All ML inference runs locally in the browser via TensorFlow.js.
-
-### Why a custom converter?
-
-The standard `tensorflowjs_converter` CLI had version incompatibilities with the training environment (Python 3.10 + TensorFlow 2.15). `scripts/convert_model.py` manually serializes the Keras model into TensorFlow.js LayersModel format, preserving the trained layer order and output class order used by the browser runtime.
-
-### Pixel polarity
-
-Quick Draw `.npy` bitmap files are loaded as 28×28 grayscale arrays. During training, the preprocessing step converts the raw bitmap values with:
-
-```python
-samples = 1.0 - data[:n].astype("float32") / 255.0
-```
-
-This aligns the training tensors with the browser canvas pipeline:
-
-- white background = `1.0`
-- black stroke = `0.0`
-
-Because the browser canvas already produces this same convention, inference does not apply an additional inversion step.
-
-### Preprocessing alignment
-
-The browser canvas pipeline is intentionally kept aligned with the trained model artifact. The current implementation resizes the cropped drawing directly to 28×28 without preserving aspect ratio, which mirrors the preprocessing used during training. Alternative strategies such as aspect-ratio-preserving resize with center padding were evaluated but deferred — they require retraining and end-to-end validation to avoid training/inference distribution mismatch.
+This keeps the backend lightweight and avoids unnecessary backend GPU infrastructure cost.
 
 ---
 
-## Multiplayer Architecture
+### Single ECS task
 
-```
-Browser (client)                    Node.js server
-─────────────────                   ──────────────
-Canvas drawing
-    ↓
-TF.js inference (local)  ←── AI never touches the server
-    ↓
-submit_score ──────────────────────→ store latest score
-                                           ↓
-                         timer expires → endRound()
-                                           ↓
-round_end ←────────────────────── broadcast rankings
+The ECS service intentionally uses:
+
+```hcl
+desired_count = 1
 ```
 
-**Key design decisions:**
-- Scores are only broadcast **after** the round ends — players can't see each other's scores mid-round
-- Timer runs server-side to prevent client-side cheating
-- Score is calculated server-side from bounded client inference outputs, preventing direct arbitrary score injection
-- Room host identity is verified via a `hostToken` issued at room creation — prevents the first socket to connect from claiming host
-- Full anti-cheat would require server-side inference or signed inference results, which is intentionally out of scope for this browser-first ML demo
+The multiplayer room manager stores active rooms, players, scores, and round state in process memory. Running multiple ECS tasks without an external state layer could split players across different containers.
+
+A horizontally scalable production version would require one or more of the following:
+
+- Redis-backed room state
+- Socket.io Redis adapter
+- External session persistence
+- Sticky sessions
+- Pub/sub event propagation
+
+For this project, a single Fargate task is an intentional trade-off that preserves application correctness while demonstrating managed container deployment.
 
 ---
 
-## Known Limitations
+### ALB as the public entry point
 
-- Room state and leaderboard are in-memory and reset when the Render instance restarts.
-- Multiplayer scoring prevents direct score injection, but full anti-cheat would require server-side inference or signed inference outputs.
-- The current model is a 20-class custom CNN; recognition quality varies across categories.
-- Render free tier may cold start after inactivity (~50 seconds on first request).
+The ECS task is not exposed directly to the internet.
 
----
+Traffic flows through the Application Load Balancer:
 
-## Development Milestones
+```text
+Browser → ALB port 80 → ECS task port 3000
+```
 
-| Milestone | Description |
-|---|---|
-| M1 | Canvas drawing + TF.js model loading and inference |
-| M2 | Single-player free mode (timer, scoring, combo) |
-| M3 | Challenge mode (difficulty tiers, confidence threshold) |
-| M4 | Multiplayer lobby (REST API + Socket.io room management) |
-| M5 | Multiplayer game loop (server-side timer, round sync, rankings) |
-| M6 | UI polish (topbar, screen transitions, game-over card) |
+The ALB security group allows public HTTP traffic on port 80.
+
+The ECS service security group only allows inbound traffic from the ALB security group on the container port.
+
+This keeps the public entry point separate from the container runtime.
 
 ---
 
-## License
+### Same-origin frontend configuration
 
-MIT
+The frontend uses runtime same-origin configuration:
+
+```js
+const origin = window.location.origin;
+
+window.APP_CONFIG = {
+  SOCKET_URL: origin,
+  API_BASE_URL: origin,
+};
+```
+
+This allows the same frontend code to work across local development and AWS ALB deployment without hardcoded backend URLs.
+
+Examples:
+
+```text
+Local:
+http://localhost:3000/api/rooms
+
+AWS ECS:
+http://<alb-dns-name>/api/rooms
+```
+
+This avoids CORS issues and makes the frontend portable across deployment environments.
+
+---
+
+### Default VPC and public subnets
+
+This deployment uses the AWS default VPC and public subnets.
+
+That choice is intentional for a portfolio/demo deployment:
+
+- no NAT Gateway cost
+- simpler Terraform configuration
+- faster reproducibility
+- easier validation and teardown
+
+The ECS task is assigned a public IP so it can pull images from ECR and write logs to CloudWatch without requiring NAT Gateway or VPC endpoints.
+
+Inbound access is still restricted by security groups. The task only accepts traffic from the ALB security group.
+
+A production version would normally use private subnets, NAT Gateway or VPC endpoints, custom VPC boundaries, HTTPS, and more restrictive networking.
+
+---
+
+## Prerequisites
+
+Install and configure:
+
+- AWS CLI
+- Terraform
+- Docker
+- An AWS account with permissions for ECR, ECS, IAM, ALB, EC2 networking, and CloudWatch Logs
+
+Authenticate AWS CLI:
+
+```powershell
+aws sts get-caller-identity
+```
+
+---
+
+## Terraform Variables
+
+Copy the example variables file:
+
+```powershell
+Copy-Item terraform.tfvars.example terraform.tfvars
+```
+
+Example values:
+
+```hcl
+aws_region     = "us-east-1"
+project_name   = "quick-draw-game"
+service_name   = "quick-draw-backend"
+image_tag      = "latest"
+container_port = 3000
+task_cpu       = 256
+task_memory    = 512
+desired_count  = 1
+```
+
+Do not commit `terraform.tfvars`.
+
+---
+
+## Deployment Workflow
+
+Run Terraform from this directory:
+
+```powershell
+cd infra/aws-ecs-fargate
+```
+
+Initialize Terraform:
+
+```powershell
+terraform init
+```
+
+Review the plan:
+
+```powershell
+terraform plan
+```
+
+Create the infrastructure:
+
+```powershell
+terraform apply
+```
+
+Expected resource categories:
+
+- ECR repository
+- CloudWatch log group
+- ECS cluster
+- ALB and target group
+- Security groups
+- IAM execution role
+- ECS task definition
+- ECS service
+
+After apply, Terraform outputs:
+
+```text
+ecr_repository_url
+alb_dns_name
+service_url
+```
+
+---
+
+## Build and Push Docker Image
+
+From the repository root:
+
+```powershell
+docker build -t quick-draw-game:latest .
+```
+
+Set the ECR repository URL from Terraform output:
+
+```powershell
+$ECR_URL = "<account-id>.dkr.ecr.us-east-1.amazonaws.com/quick-draw-game"
+```
+
+Tag the image:
+
+```powershell
+docker tag quick-draw-game:latest ${ECR_URL}:latest
+```
+
+Authenticate Docker to ECR:
+
+```powershell
+cmd /c "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com"
+```
+
+Push the image:
+
+```powershell
+docker push ${ECR_URL}:latest
+```
+
+---
+
+## Force ECS Deployment
+
+If the ECS service was created before the image existed, or if the `latest` tag was rebuilt, force a new deployment:
+
+```powershell
+aws ecs update-service `
+  --cluster quick-draw-game-cluster `
+  --service quick-draw-backend `
+  --force-new-deployment `
+  --region us-east-1
+```
+
+This instructs ECS to start a new task using the current task definition and pull the current image from ECR.
+
+---
+
+## Validation
+
+### ECS service status
+
+```powershell
+aws ecs describe-services `
+  --cluster quick-draw-game-cluster `
+  --services quick-draw-backend `
+  --region us-east-1 `
+  --query "services[0].{status:status,desired:desiredCount,running:runningCount,pending:pendingCount,events:events[0:3]}"
+```
+
+Expected:
+
+```text
+status: ACTIVE
+desired: 1
+running: 1
+pending: 0
+```
+
+### Target group health
+
+```powershell
+$TG_ARN = aws elbv2 describe-target-groups `
+  --names quick-draw-game-tg `
+  --region us-east-1 `
+  --query "TargetGroups[0].TargetGroupArn" `
+  --output text
+
+aws elbv2 describe-target-health `
+  --target-group-arn $TG_ARN `
+  --region us-east-1 `
+  --query "TargetHealthDescriptions[*].{target:Target.Id,port:Target.Port,state:TargetHealth.State,reason:TargetHealth.Reason,description:TargetHealth.Description}"
+```
+
+Expected:
+
+```text
+state: healthy
+```
+
+### Public health check
+
+```powershell
+$URL = terraform output -raw service_url
+(Invoke-WebRequest "$URL/api/health").StatusCode
+```
+
+Expected:
+
+```text
+200
+```
+
+### Browser validation
+
+Open the service URL:
+
+```powershell
+Start-Process $URL
+```
+
+Validate:
+
+- Homepage loads through the ALB.
+- Free Mode works.
+- Challenge Mode works.
+- Multiplayer room creation works.
+- Two browser sessions can join the same room.
+- Socket.io multiplayer synchronization works.
+
+---
+
+## Runtime Logs
+
+Container stdout and stderr are sent to CloudWatch Logs:
+
+```powershell
+aws logs tail "/ecs/quick-draw-game" `
+  --region us-east-1 `
+  --since 10m
+```
+
+This is useful for debugging application startup, REST requests, Socket.io events, and container runtime errors.
+
+---
+
+## Troubleshooting
+
+### ECS service cannot pull image
+
+Error:
+
+```text
+CannotPullContainerError
+```
+
+Common cause:
+
+```text
+ECR image tag does not exist yet.
+```
+
+Fix:
+
+```powershell
+docker build -t quick-draw-game:latest .
+docker tag quick-draw-game:latest ${ECR_URL}:latest
+docker push ${ECR_URL}:latest
+
+aws ecs update-service `
+  --cluster quick-draw-game-cluster `
+  --service quick-draw-backend `
+  --force-new-deployment `
+  --region us-east-1
+```
+
+### ALB target is unhealthy
+
+Check:
+
+- container listens on port 3000
+- Express app exposes `/api/health`
+- target group health check path is `/api/health`
+- ECS security group allows inbound traffic from the ALB security group
+- task has reached running state
+
+### Frontend calls the wrong backend
+
+The frontend should use same-origin API and Socket.io URLs.
+
+Correct:
+
+```js
+window.location.origin
+```
+
+Avoid hardcoded backend URLs in frontend JavaScript.
+
+---
+
+## Cost Control
+
+This deployment is intended for short-lived validation and demos.
+
+Resources that may incur cost include:
+
+- Application Load Balancer
+- Fargate task runtime
+- ECR image storage
+- CloudWatch Logs
+
+After validation:
+
+```powershell
+terraform destroy
+```
+
+Expected:
+
+```text
+Destroy complete
+```
+
+The normal workflow is:
+
+```text
+terraform apply
+→ build and push image
+→ validate ECS / ALB / app behavior
+→ terraform destroy
+```
+
+---
+
+## Validation Evidence
+
+The deployment was validated with:
+
+- Terraform apply completed successfully.
+- ECS service reached steady state.
+- Target group reported healthy targets.
+- `/api/health` returned HTTP 200 through the ALB.
+- Homepage loaded through the ALB DNS name.
+- Free Mode inference worked.
+- Challenge Mode inference worked.
+- Versus Mode room creation worked.
+- Two browser sessions joined the same multiplayer room.
+- Socket.io multiplayer flow worked through the ALB.
+
+Screenshots are stored under:
+
+```text
+docs/assets/
+```
